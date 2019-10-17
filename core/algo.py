@@ -13,8 +13,6 @@ class SacDiscrete(object):
             "cuda" if configs.cuda and torch.cuda.is_available() else "cpu")
         self.gamma = configs.gamma
         self.lr = configs.lr
-        self.env_steps_per_iters = configs.env_steps_per_iters
-        self.updates_per_iters = configs.updates_per_iters
         self.target_updates_per_iters = configs.target_updates_per_iters
         self.start_steps = configs.start_steps
 
@@ -66,10 +64,11 @@ class SacDiscrete(object):
             next_state_action, action_probs, log_action_probs, _ =\
                 self.policy.sample(next_state_batch)
             qf1_next_target, qf2_next_target =\
-                self.critic_target(next_state_batch, next_state_action)
+                self.critic_target(next_state_batch)
             min_qf_next_target = action_probs * (
                 torch.min(qf1_next_target, qf2_next_target)
                 - self.alpha * log_action_probs)
+            min_qf_next_target = min_qf_next_target.mean(dim=1).unsqueeze(-1)
             next_q_value = reward_batch +\
                 mask_batch * self.gamma * (min_qf_next_target)
 
@@ -87,10 +86,14 @@ class SacDiscrete(object):
             self.policy.sample(state_batch)
         qf1_pi, qf2_pi = self.critic(state_batch)
         min_qf_pi = torch.min(qf1_pi, qf2_pi)
-        policy_loss = (
+
+        policy_loss = ((
             self.alpha * log_action_probs - min_qf_pi) * action_probs
-        alpha_loss = -(self.log_alpha * (
-            log_action_probs + self.target_entropy).detach()) * action_probs
+            ).mean()
+
+        alpha_loss = (
+            -self.alpha * (log_action_probs + self.target_entropy).detach()
+            * action_probs).mean()
 
         return policy_loss, alpha_loss
 
@@ -104,7 +107,8 @@ class SacDiscrete(object):
         # next state
         next_state_batch = torch.FloatTensor(next_state_batch).to(self.device)
         # action
-        action_batch = torch.FloatTensor(action_batch).to(self.device)
+        action_batch = torch.FloatTensor(
+            action_batch).to(self.device).unsqueeze(1)
         # reward
         reward_batch = torch.FloatTensor(
             reward_batch).to(self.device).unsqueeze(1)
@@ -130,7 +134,7 @@ class SacDiscrete(object):
         self.critic_optim.step()
         # update pi
         self.policy_optim.zero_grad()
-        policy_loss.backward()
+        policy_loss.backward(retain_graph=True)
         self.policy_optim.step()
         # update alpha
         self.alpha_optim.zero_grad()
