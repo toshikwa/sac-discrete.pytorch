@@ -4,3 +4,5 @@ gym==0.15.3
 gym[atari]
 opencv-python==4.1.1.26
 tensorboard==2.0.0
+matplotlib
+seaborn

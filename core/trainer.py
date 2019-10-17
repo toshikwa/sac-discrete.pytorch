@@ -8,7 +8,7 @@ from torch.utils.tensorboard import SummaryWriter
 from env import make_atari_game
 from algo import SacDiscrete
 from memory import ReplayMemory
-# from vis import plot_return_history
+from vis import plot_return_history
 
 
 CORE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -39,7 +39,8 @@ class Trainer():
             os.makedirs(self.logdir)
 
         # writer
-        self.writer = SummaryWriter(log_dir=os.path.join(self.logdir, 'tb'))
+        self.writer = SummaryWriter(
+            log_dir=os.path.join(self.logdir, 'summary'))
         # replay memory
         self.memory = ReplayMemory(configs.replay_buffer_size)
 
@@ -175,17 +176,17 @@ class Trainer():
             self.std_return_history)
 
         # plot
-        # plot_return_history(
-        #     self.mean_return_history, self.std_return_history,
-        #     os.path.join(self.logdir, 'test_rewards.png'),
-        #     self.env_name, self.eval_per_iters)
+        plot_return_history(
+            self.mean_return_history, self.std_return_history,
+            os.path.join(self.logdir, 'test_rewards.png'),
+            self.env_name, self.eval_per_iters)
 
     def train(self):
         # iterate until convergence
         for episode in itertools.count(1):
             # train
             self.train_episode(episode)
-            if self.total_numsteps > self.num_steps:
+            if self.total_numsteps > self.updates:
                 break
 
         self.agent.save_model(

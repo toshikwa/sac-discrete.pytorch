@@ -37,7 +37,7 @@ def get_configs():
         '-v', '--vis', action="store_true",
         help='If render the environment or not.')
     parser.add_argument(
-        '--eval_per_iters', type=int, default=10000,
+        '--eval_per_iters', type=int, default=5000,
         help='Evaluation per iterations.')
     parser.add_argument(
         '--seed', type=int, default=42,
