@@ -32,7 +32,7 @@ class SacDiscrete(object):
         self.hard_update()
 
         # ---- entropy ---- #
-        self.target_entropy = -np.log((1.0 / action_space.n)) * 0.98
+        self.target_log_entropy = -np.log((1.0 / action_space.n)) * 0.98
         self.log_alpha = torch.zeros(
             1, requires_grad=True, device=self.device)
         self.alpha = self.log_alpha.exp()
@@ -61,58 +61,69 @@ class SacDiscrete(object):
                          next_state_batch, mask_batch):
 
         with torch.no_grad():
+            # sample action
             next_state_action, action_probs, log_action_probs, _ =\
                 self.policy.sample(next_state_batch)
+            # next targets: (num_batches, 1)
             qf1_next_target, qf2_next_target =\
                 self.critic_target(next_state_batch)
-            min_qf_next_target = action_probs * (
-                torch.min(qf1_next_target, qf2_next_target)
-                - self.alpha * log_action_probs)
-            min_qf_next_target = min_qf_next_target.mean(dim=1).unsqueeze(-1)
+            min_qf_next_target = torch.min(qf1_next_target, qf2_next_target)
+            min_qf_next_target = (action_probs * (
+                min_qf_next_target - self.alpha * log_action_probs
+                )).mean(dim=1).unsqueeze(-1)
+            # next Q values: (num_batches, 1)
             next_q_value = reward_batch +\
                 mask_batch * self.gamma * (min_qf_next_target)
 
+        # Q_i: (num_batches, 1)
         qf1, qf2 = self.critic(state_batch)
         qf1 = qf1.gather(1, action_batch.long())
         qf2 = qf2.gather(1, action_batch.long())
+        # loss
         qf1_loss = F.mse_loss(qf1, next_q_value)
         qf2_loss = F.mse_loss(qf2, next_q_value)
 
         return qf1_loss, qf2_loss
 
-    def calc_actor_and_alpha_loss(self, state_batch):
-
+    def calc_actor_loss(self, state_batch):
+        # sample action and probs
         action, action_probs, log_action_probs, _ =\
             self.policy.sample(state_batch)
+        # soft Q function: (num_batches, num_actions)
         qf1_pi, qf2_pi = self.critic(state_batch)
         min_qf_pi = torch.min(qf1_pi, qf2_pi)
-
-        policy_loss = ((
-            self.alpha * log_action_probs - min_qf_pi) * action_probs
+        # loss
+        policy_loss = (
+            (self.alpha * log_action_probs - min_qf_pi) * action_probs
             ).mean()
+        # negative entropies: (num_batches, )
+        negative_entropies = torch.sum(
+            log_action_probs * action_probs, dim=1)
+        return policy_loss, negative_entropies
 
-        alpha_loss = (
-            -self.alpha * (log_action_probs + self.target_entropy).detach()
-            * action_probs).mean()
-
-        return policy_loss, alpha_loss
+    def calculate_alpha_loss(self, negative_entropies):
+        alpha_loss = -(
+            self.log_alpha *
+            (negative_entropies + self.target_log_entropy).detach()
+            ).mean()
+        return alpha_loss
 
     def update_parameters(self, memory, batch_size, updates):
-        # sample the batch from memory
+        # sample batches
         state_batch, action_batch, reward_batch,\
             next_state_batch, mask_batch = memory.sample(batch_size=batch_size)
 
-        # current state
+        # current state: (num_batches, 4, 84, 84)
         state_batch = torch.FloatTensor(state_batch).to(self.device)
-        # next state
+        # next state: (num_batches, 4, 84, 84)
         next_state_batch = torch.FloatTensor(next_state_batch).to(self.device)
-        # action
+        # action: (num_batches, 1)
         action_batch = torch.FloatTensor(
             action_batch).to(self.device).unsqueeze(1)
-        # reward
+        # reward: (num_batches, 1)
         reward_batch = torch.FloatTensor(
             reward_batch).to(self.device).unsqueeze(1)
-        # mask
+        # mask: (num_batches, 1)
         mask_batch = torch.FloatTensor(
             mask_batch).to(self.device).unsqueeze(1)
 
@@ -121,16 +132,19 @@ class SacDiscrete(object):
             state_batch, action_batch, reward_batch, next_state_batch,
             mask_batch)
 
-        # loss of the actor and the entropy
-        policy_loss, alpha_loss = self.calc_actor_and_alpha_loss(state_batch)
+        # loss of the actor
+        policy_loss, negative_entropies = self.calc_actor_loss(state_batch)
+
+        # loss of the alpha
+        alpha_loss = self.calculate_alpha_loss(negative_entropies)
 
         # update Q1
         self.critic_optim.zero_grad()
-        qf1_loss.backward()
+        qf1_loss.backward(retain_graph=True)
         self.critic_optim.step()
         # update Q2
         self.critic_optim.zero_grad()
-        qf2_loss.backward()
+        qf2_loss.backward(retain_graph=True)
         self.critic_optim.step()
         # update pi
         self.policy_optim.zero_grad()
@@ -138,7 +152,7 @@ class SacDiscrete(object):
         self.policy_optim.step()
         # update alpha
         self.alpha_optim.zero_grad()
-        alpha_loss.backward()
+        alpha_loss.backward(retain_graph=True)
         self.alpha_optim.step()
 
         self.alpha = self.log_alpha.exp()

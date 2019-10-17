@@ -40,17 +40,17 @@ class QNetwork(BaseNetwork):
 
         # Q1
         self.Q1 = nn.Sequential(
-            # (84, 84, input_channels) -> (20, 20, 32)
+            # (input_channels, 84, 84) -> (32, 20, 20)
             nn.Conv2d(input_channels, 32, kernel_size=8, stride=4, padding=0),
             nn.ReLU(inplace=True),
-            # (20, 20, 32) -> (9, 9, 64)
+            # (32, 20, 20) -> (64, 9, 9)
             nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=0),
             nn.ReLU(inplace=True),
-            # (9, 9, 64) -> (7, 7, 64)
+            # (64, 9, 9) -> (64, 7, 7)
             nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=0),
             nn.ReLU(inplace=True),
             Flatten(),
-            # (7 * 7 * 64, ) -> (512, )
+            # (64 * 7 * 7, ) -> (512, )
             nn.Linear(7 * 7 * 64, 512),
             nn.ReLU(inplace=True),
             # (512, ) -> (num_actions, )
@@ -72,6 +72,7 @@ class QNetwork(BaseNetwork):
         ).apply(weights_init_he)
 
     def forward(self, state):
+        # Q_i: (num_batches, num_actions)
         q1 = self.Q1(state)
         q2 = self.Q2(state)
         return q1, q2
@@ -83,36 +84,31 @@ class DiscretePolicy(BaseNetwork):
     def __init__(self, input_channels, num_actions):
         super(DiscretePolicy, self).__init__()
 
-        # policy network
+        # policy network (exactly the same structure with critics)
         self.policy = nn.Sequential(
-            # (84, 84, input_channels) -> (20, 20, 32)
             nn.Conv2d(input_channels, 32, kernel_size=8, stride=4, padding=0),
             nn.ReLU(inplace=True),
-            # (20, 20, 32) -> (9, 9, 64)
             nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=0),
             nn.ReLU(inplace=True),
-            # (9, 9, 64) -> (7, 7, 64)
             nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=0),
             nn.ReLU(inplace=True),
             Flatten(),
-            # (7 * 7 * 64, ) -> (512, )
             nn.Linear(7 * 7 * 64, 512),
             nn.ReLU(inplace=True),
-            # (512, ) -> (num_actions, )
             nn.Linear(512, num_actions),
-            nn.Softmax(dim=1)
+            nn.LogSoftmax(dim=1)
         ).apply(weights_init_he)
 
     def sample(self, state):
-        # action probabilities
-        action_probs = self.policy(state)
-        # actions with maximum probabilities
-        max_prob_actions = torch.argmax(action_probs).unsqueeze(0)
+        # log action probabilities: (num_batches, num_actions)
+        log_action_probs = self.policy(state)
+        # action probabilities: (num_batches, num_actions)
+        action_probs = log_action_probs.exp()
+        # greedy actions: (num_batches, )
+        max_prob_actions = torch.argmax(action_probs, dim=1)
         # distribution of policy's actions
         action_dist = Categorical(action_probs)
-        # sample actions
+        # stochastic actions: (num_batches, )
         actions = action_dist.sample().cpu()
-        # log likelihood of actions
-        log_action_probs = torch.log(action_probs + 1e-8)
 
         return actions, action_probs, log_action_probs, max_prob_actions

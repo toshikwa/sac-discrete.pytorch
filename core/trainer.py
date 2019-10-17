@@ -186,7 +186,7 @@ class Trainer():
         for episode in itertools.count(1):
             # train
             self.train_episode(episode)
-            if self.total_numsteps > self.updates:
+            if self.updates > self.num_steps:
                 break
 
         self.agent.save_model(

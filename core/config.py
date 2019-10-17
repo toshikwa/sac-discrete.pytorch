@@ -43,7 +43,7 @@ def get_configs():
         '--seed', type=int, default=42,
         help='Random seed.')
     parser.add_argument(
-        '--num_steps', type=int, default=100000,
+        '--num_steps', type=int, default=500000,
         help='Maximum number of steps.')
     parser.add_argument(
         '--cuda', action="store_true",
