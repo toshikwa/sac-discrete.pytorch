@@ -96,19 +96,20 @@ class DiscretePolicy(BaseNetwork):
             nn.Linear(7 * 7 * 64, 512),
             nn.ReLU(inplace=True),
             nn.Linear(512, num_actions),
-            nn.LogSoftmax(dim=1)
+            nn.Softmax(dim=1)
         ).apply(weights_init_he)
 
     def sample(self, state):
-        # log action probabilities: (num_batches, num_actions)
-        log_action_probs = self.policy(state)
         # action probabilities: (num_batches, num_actions)
-        action_probs = log_action_probs.exp()
+        action_probs = self.policy(state)
         # greedy actions: (num_batches, )
         max_prob_actions = torch.argmax(action_probs, dim=1)
         # distribution of policy's actions
         action_dist = Categorical(action_probs)
         # stochastic actions: (num_batches, )
         actions = action_dist.sample().cpu()
+        z = action_probs == 0.0
+        z = z.float() * 1e-8
+        log_action_probs = torch.log(action_probs + z)
 
         return actions, action_probs, log_action_probs, max_prob_actions

@@ -32,7 +32,7 @@ class SacDiscrete(object):
         self.hard_update()
 
         # ---- entropy ---- #
-        self.target_log_entropy = -np.log((1.0 / action_space.n)) * 0.98
+        self.target_entropy = -np.log((1.0 / action_space.n)) * 0.98
         self.log_alpha = torch.zeros(
             1, requires_grad=True, device=self.device)
         self.alpha = self.log_alpha.exp()
@@ -104,7 +104,7 @@ class SacDiscrete(object):
     def calculate_alpha_loss(self, negative_entropies):
         alpha_loss = -(
             self.log_alpha *
-            (negative_entropies + self.target_log_entropy).detach()
+            (negative_entropies + self.target_entropy).detach()
             ).mean()
         return alpha_loss
 

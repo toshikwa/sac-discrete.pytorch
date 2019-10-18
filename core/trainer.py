@@ -52,8 +52,8 @@ class Trainer():
         self.vis = configs.vis
         self.batch_size = configs.batch_size
         self.start_steps = configs.start_steps
-        self.env_steps_per_iters = configs.env_steps_per_iters
-        self.updates_per_iters = configs.updates_per_iters
+        self.update_every_n_steps = configs.update_every_n_steps
+        self.learning_per_update = configs.learning_per_update
         self.eval_per_iters = configs.eval_per_iters
         self.num_steps = configs.num_steps
         self.max_episode_steps = self.env.spec.tags.get(
@@ -66,21 +66,22 @@ class Trainer():
 
     def update(self):
         if len(self.memory) > self.batch_size:
-            critic_1_loss, critic_2_loss, policy_loss, ent_loss, alpha =\
-                self.agent.update_parameters(
-                    self.memory, self.batch_size, self.updates)
+            for _ in range(self.learning_per_update):
+                critic_1_loss, critic_2_loss, policy_loss, ent_loss, alpha =\
+                    self.agent.update_parameters(
+                        self.memory, self.batch_size, self.updates)
 
-            self.writer.add_scalar(
-                'loss/critic_1', critic_1_loss, self.updates)
-            self.writer.add_scalar(
-                'loss/critic_2', critic_2_loss, self.updates)
-            self.writer.add_scalar(
-                'loss/policy', policy_loss, self.updates)
-            self.writer.add_scalar(
-                'loss/entropy_loss', ent_loss, self.updates)
-            self.writer.add_scalar(
-                'entropy_temprature/alpha', alpha, self.updates)
-            self.updates += 1
+                self.writer.add_scalar(
+                    'loss/critic_1', critic_1_loss, self.updates)
+                self.writer.add_scalar(
+                    'loss/critic_2', critic_2_loss, self.updates)
+                self.writer.add_scalar(
+                    'loss/policy', policy_loss, self.updates)
+                self.writer.add_scalar(
+                    'loss/entropy_loss', ent_loss, self.updates)
+                self.writer.add_scalar(
+                    'entropy_temprature/alpha', alpha, self.updates)
+                self.updates += 1
 
     def train_episode(self, episode):
         # rewards
@@ -96,7 +97,7 @@ class Trainer():
             if self.vis:
                 self.env.render()
 
-            for _ in range(self.env_steps_per_iters):
+            for _ in range(self.update_every_n_steps):
                 # take the random action
                 if self.start_steps > self.total_numsteps:
                     action = self.env.action_space.sample()
@@ -117,8 +118,7 @@ class Trainer():
                 self.memory.push(state, action, reward, next_state, mask)
                 state = next_state
 
-            for _ in range(self.updates_per_iters):
-                self.update()
+            self.update()
 
             if self.total_numsteps % self.eval_per_iters == 0:
                 self.evaluate()

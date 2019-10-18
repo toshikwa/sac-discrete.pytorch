@@ -12,13 +12,18 @@ cv2.ocl.setUseOpenCL(False)
 
 
 def make_atari_game(env_id, max_episode_steps=None):
+    # make environment
     env = gym.make(env_id)
     env.frameskip = 1
+    # no-op reset
     env = NoopResetEnv(env, noop_max=30)
+    # action repeat
     env = MaxAndSkipEnv(env, skip=4)
+    # set maximum episode's steps
     if max_episode_steps is not None:
         env = TimeLimit(env, max_episode_steps=max_episode_steps)
-    env = wrap_deepmind(env)
+    env = wrap_deepmind(env, frame_stack=False)
+    env = PyTorchEnv(env)
     return env
 
 
@@ -29,14 +34,18 @@ def wrap_deepmind(env, episode_life=True, clip_rewards=True, frame_stack=True,
         env = EpisodicLifeEnv(env)
     if 'FIRE' in env.unwrapped.get_action_meanings():
         env = FireResetEnv(env)
+    # warp to (84, 84)
     env = WarpFrame(env)
+    # scale to 0-1
     if scale:
         env = ScaledFloatFrame(env)
+    # clip reward to sgn(r)
     if clip_rewards:
         env = ClipRewardEnv(env)
+    # stack frames
     if frame_stack:
         env = FrameStack(env, 4)
-    return PyTorchEnv(env)
+    return env
 
 
 class PyTorchEnv(gym.Wrapper):
@@ -178,8 +187,10 @@ class MaxAndSkipEnv(gym.Wrapper):
         done = None
         for i in range(self._skip):
             obs, reward, done, info = self.env.step(action)
-            if i == self._skip - 2: self._obs_buffer[0] = obs
-            if i == self._skip - 1: self._obs_buffer[1] = obs
+            if i == self._skip - 2:
+                self._obs_buffer[0] = obs
+            if i == self._skip - 1:
+                self._obs_buffer[1] = obs
             total_reward += reward
             if done:
                 break
@@ -199,7 +210,8 @@ class ClipRewardEnv(gym.RewardWrapper):
 
     def reward(self, reward):
         """Bin reward to {+1, 0, -1} by its sign."""
-        return np.sign(reward)
+        # return np.sign(reward)
+        return max(min(reward, 1.0), -1.0)
 
 
 class WarpFrame(gym.ObservationWrapper):

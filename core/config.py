@@ -17,11 +17,11 @@ def get_configs():
         '--gamma', type=float, default=0.99,
         help='Discount factor for the reward.')
     parser.add_argument(
-        '--env_steps_per_iters', type=int, default=4,
-        help='Environment steps per iterations.')
+        '--update_every_n_steps', type=int, default=4,
+        help='Environment steps per update.')
     parser.add_argument(
-        '--updates_per_iters', type=int, default=1,
-        help='Learning updates per iterations.')
+        '--learning_per_update', type=int, default=1,
+        help='Learning updates per learning.')
     parser.add_argument(
         '--target_updates_per_iters', type=int, default=8000,
         help='Target updates per iterations.')
