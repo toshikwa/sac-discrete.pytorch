@@ -5,7 +5,7 @@ def get_configs():
     parser = argparse.ArgumentParser()
     # SAC-Discrete configs
     parser.add_argument(
-        '--env_name', type=str, default='MsPacman-v0',
+        '--env_name', type=str, default='MsPacmanNoFrameskip-v4',
         help='Name of the environment to run.')
     parser.add_argument(
         '--batch_size', type=int, default=64,
@@ -23,7 +23,7 @@ def get_configs():
         '--learning_per_update', type=int, default=1,
         help='Learning updates per learning.')
     parser.add_argument(
-        '--target_updates_per_iters', type=int, default=8000,
+        '--target_updates_per_steps', type=int, default=8000,
         help='Target updates per iterations.')
     parser.add_argument(
         '--lr', type=float, default=0.0003,
@@ -40,10 +40,10 @@ def get_configs():
         '--eval_per_iters', type=int, default=5000,
         help='Evaluation per iterations.')
     parser.add_argument(
-        '--seed', type=int, default=42,
+        '--seed', type=int, default=0,
         help='Random seed.')
     parser.add_argument(
-        '--num_steps', type=int, default=500000,
+        '--num_steps', type=int, default=100000,
         help='Maximum number of steps.')
     parser.add_argument(
         '--cuda', action="store_true",
