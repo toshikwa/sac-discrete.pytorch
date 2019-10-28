@@ -4,8 +4,10 @@ import itertools
 import numpy as np
 import torch
 from torch.utils.tensorboard import SummaryWriter
+from gym import wrappers
+import matplotlib.pyplot as plt
 
-from env import make_atari_game
+from env import make_pytorch_env
 from algo import SacDiscrete
 from memory import ReplayMemory
 from vis import plot_return_history
@@ -18,8 +20,10 @@ HOME_DIR = os.path.dirname(CORE_DIR)
 class Trainer():
 
     def __init__(self, configs):
+        self.device = torch.device(
+            "cuda" if configs.cuda and torch.cuda.is_available() else "cpu")
         # environment
-        self.env = make_atari_game(configs.env_name)
+        self.env = make_pytorch_env(configs.env_name)
 
         # seed
         torch.manual_seed(configs.seed)
@@ -41,8 +45,13 @@ class Trainer():
         # writer
         self.writer = SummaryWriter(
             log_dir=os.path.join(self.logdir, 'summary'))
+        # monitor
+        self.env = wrappers.Monitor(
+            self.env, os.path.join(self.logdir, 'monitor'),
+            video_callable=lambda ep: ep % 100 == 0)
         # replay memory
-        self.memory = ReplayMemory(configs.replay_buffer_size)
+        self.memory = ReplayMemory(
+            configs.replay_buffer_size, self.device)
 
         # return history
         self.mean_return_history = np.array([], dtype=np.float)
@@ -60,32 +69,18 @@ class Trainer():
             'wrapper_config.TimeLimit.max_episode_steps')
 
         # training steps
-        self.total_numsteps = 0
+        self.total_steps = 0
         # update counts
         self.updates = 0
 
     def update(self):
-        if len(self.memory) > self.batch_size:
-            for _ in range(self.learning_per_update):
-                critic_1_loss, critic_2_loss, policy_loss, ent_loss, alpha =\
-                    self.agent.update_parameters(
-                        self.memory, self.batch_size, self.updates)
-
-                self.writer.add_scalar(
-                    'loss/critic_1', critic_1_loss, self.updates)
-                self.writer.add_scalar(
-                    'loss/critic_2', critic_2_loss, self.updates)
-                self.writer.add_scalar(
-                    'loss/policy', policy_loss, self.updates)
-                self.writer.add_scalar(
-                    'loss/entropy_loss', ent_loss, self.updates)
-                self.writer.add_scalar(
-                    'entropy_temprature/alpha', alpha, self.updates)
-                self.updates += 1
+        self.agent.update_parameters(
+            self.memory, self.batch_size, self.total_steps, self.writer)
+        self.updates += 1
 
     def train_episode(self, episode):
         # rewards
-        episode_reward = 0
+        episode_reward = 0.
         # steps
         episode_steps = 0
         # done
@@ -97,44 +92,58 @@ class Trainer():
             if self.vis:
                 self.env.render()
 
-            for _ in range(self.update_every_n_steps):
-                # take the random action
-                if self.start_steps > self.total_numsteps:
-                    action = self.env.action_space.sample()
-                # sample from the policy
-                else:
-                    action = self.agent.select_action(state)
-                # act
-                next_state, reward, done, _ = self.env.step(action)
-                episode_steps += 1
-                episode_reward += reward
-                self.total_numsteps += 1
+            # take the random action
+            if self.start_steps > self.total_steps:
+                action = self.env.action_space.sample()
+            # sample from the policy
+            else:
+                action = self.agent.select_action(state)
+            # act
+            next_state, reward, done, _ = self.env.step(action)
+            episode_steps += 1
+            episode_reward += reward
+            self.total_steps += 1
 
-                # ignore the "done" if it comes from hitting the time horizon.
-                mask = 1 if episode_steps == self.max_episode_steps\
-                    else float(not done)
+            # ignore the "done" if it comes from hitting the time horizon
+            masked_done = False if episode_steps >= self.max_episode_steps\
+                else done
 
-                # store in the replay memory
-                self.memory.push(state, action, reward, next_state, mask)
-                state = next_state
+            # clip reward
+            clipped_reward = max(min(reward, 1.0), -1.0)
 
-            self.update()
+            # store in the replay memory
+            self.memory.push(
+                state, action, clipped_reward, next_state, masked_done)
+            state = next_state
 
-            if self.total_numsteps % self.eval_per_iters == 0:
+            if self._is_eval():
                 self.evaluate()
+
+            if self._is_update():
+                for _ in range(self.learning_per_update):
+                    self.update()
 
         self.writer.add_scalar('reward/train', episode_reward, episode)
         print(f"Episode: {episode}, "
-              f"total numsteps: {self.total_numsteps}, "
+              f"total steps: {self.total_steps}, "
               f"episode steps: {episode_steps}, "
               f"total updates: {self.updates}, "
               f"reward: {round(episode_reward, 2)}")
+
+    def _is_eval(self):
+        return self.total_steps % self.eval_per_iters == 0 and\
+            self.start_steps <= self.total_steps
+
+    def _is_update(self):
+        return len(self.memory) > self.batch_size and\
+            self.total_steps % self.update_every_n_steps == 0
 
     def evaluate(self):
         # evaluate
         episodes = 10
         returns = np.zeros((episodes,), dtype=np.float)
-        env = make_atari_game(self.env_name)
+        env = make_pytorch_env(self.env_name)
+        action_dist = np.zeros((env.action_space.n), np.int)
 
         for i in range(episodes):
             state = env.reset()
@@ -144,6 +153,7 @@ class Trainer():
                 if self.vis:
                     env.render()
                 action = self.agent.select_action(state, eval=True)
+                action_dist[action] += 1
                 next_state, reward, done, _ = env.step(action)
                 episode_reward += reward
                 state = next_state
@@ -154,13 +164,18 @@ class Trainer():
         mean_return = np.mean(returns)
         std_return = np.std(returns)
 
+        fig = plt.figure()
+        plt.bar(np.arange(len(action_dist)), action_dist)
+        self.writer.add_figure(
+            'selected_action', fig, self.total_steps)
         self.writer.add_scalar(
-            'avg_reward/test', mean_return, self.total_numsteps)
+            'reward/test', mean_return, self.total_steps)
 
         print("----------------------------------------")
-        print(f"Num steps: {self.total_numsteps}, "
+        print(f"Num steps: {self.total_steps}, "
               f"Test Return: {round(mean_return, 2)}"
               f" +/- {round(std_return, 2)}")
+        print(np.round(action_dist / action_dist.sum(), 3))
         print("----------------------------------------")
 
         # save return
@@ -186,7 +201,7 @@ class Trainer():
         for episode in itertools.count(1):
             # train
             self.train_episode(episode)
-            if self.updates > self.num_steps:
+            if self.total_steps > self.num_steps:
                 break
 
         self.agent.save_model(
