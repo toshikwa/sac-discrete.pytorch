@@ -8,7 +8,7 @@ I referred to some implementations below.
 ## Requirements
 You can install liblaries using `pip install -r requirements.txt`.
 
-## Training
+## Usage
 
 ### NOTE
 
@@ -17,30 +17,30 @@ I changed some implementations to get more stable trainings or easy implementati
 - Prioritized experience replay
   - You can use PER with `--per`.
 - Multi-step learning
-  - You can use Multi-step learning with `--multi_step ${int number}`.
+  - You can use Multi-step learning with `--multi_step ${int number}` (default is 3).
 
 - Target update
   - In original paper, target network is updated as **hard update** with fixed interval.
   - I updated target network as **soft update**, however, which doesn't seem to influence performance.
-  - You can use **hard update** with `--update_type 'hard'`.
+  - You can use **hard update** with `--update_type 'hard'` (default is 'soft').
 - Gradient norm clipping
   - I use **gradient norm clipping** as author's implementation.
-  - You can specify clipping range with `--grad_clip ${float number}`
+  - You can specify clipping range with `--grad_clip ${float number} (default is 5.0)`
 - Entropy target annealing
   - In original paper, target entropy is fixed as `np.log(action_space.n)*0.98`, which is maximum entropy multiplied by 0.98.
   - I found this to large (not sure), and instead I annealled entropy target from `np.log(action_space.n)*0.98` to `np.log(action_space.n)*0.98*(1-target_annealing_ratio)` during training.
-  - You can use original (fixed) target with `--target_annealing_ratio 0.0`.
+  - You can use original (fixed) target with `--target_annealing_ratio 0.0` (default is 0.0).
 
 
 
-### MsPacman
+### Training
 
-I just teseted with **MsPacman** environment like below.
+I just teseted with **MsPacman** environment like below. (I didn't use PER here because I slowed down training.)
 
 ```
-python core/main.py --env_name MsPacmanNoFrameskip-v4 --cuda --per
+python core/main.py --cuda --target_annealing_ratio 0.4
 ```
 
 Scores after 100,000 steps are around 600, which is comparable with the paper.
 
-![mspacman](https://user-images.githubusercontent.com/37267851/67738428-e4d57480-fa51-11e9-94b2-1492760e3907.gif)
+<img src="https://user-images.githubusercontent.com/37267851/67809830-c9fc1200-fadc-11e9-8f48-799a19689dd6.gif" title="MsPacman" width=250>
