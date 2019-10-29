@@ -5,18 +5,16 @@ import torch
 
 
 class MultiStepBuff:
-    keys = ["state", "action", "reward", "next_state", "done"]
+    keys = ["state", "action", "reward"]
 
     def __init__(self, capacity=3):
         self.capacity = capacity
         self.reset()
 
-    def push(self, state, action, reward, next_state, done):
+    def push(self, state, action, reward):
         self.memory["state"].append(state)
         self.memory["action"].append(action)
         self.memory["reward"].append(reward)
-        self.memory["next_state"].append(next_state)
-        self.memory["done"].append(done)
 
     def get(self, gamma=0.99):
         reward = np.sum([
@@ -25,9 +23,7 @@ class MultiStepBuff:
         state = self.memory["state"].popleft()
         action = self.memory["action"].popleft()
         _ = self.memory["reward"].popleft()
-        next_state = self.memory["next_state"].popleft()
-        done = self.memory["done"].popleft()
-        return state, action, reward, next_state, done
+        return state, action, reward
 
     def reset(self):
         self.memory = {

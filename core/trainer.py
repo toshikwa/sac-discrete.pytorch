@@ -83,7 +83,6 @@ class Trainer():
         done = False
         # initial state
         state = self.env.reset()
-        self.buff.reset()
 
         while not done:
             if self.vis:
@@ -109,16 +108,14 @@ class Trainer():
             clipped_reward = max(min(reward, 1.0), -1.0)
 
             self.buff.push(
-                state, action, clipped_reward, next_state, masked_done)
+                state, action, clipped_reward)
 
             # store in the replay memory
             if len(self.buff) == self.agent.multi_step:
-                self.append_memory()
+                self.append_memory(next_state, masked_done)
 
             if done:
-                while len(self.buff) > 0:
-                    self.append_memory()
-                    self.buff.memory["reward"].append(0.0)
+                self.buff.reset()
 
             state = next_state
 
@@ -129,16 +126,15 @@ class Trainer():
                 for _ in range(self.learning_per_update):
                     self.update()
 
-        self.writer.add_scalar('reward/train', episode_reward, episode)
-        print(f"Episode: {episode}, "
-              f"total steps: {self.total_steps}, "
-              f"episode steps: {episode_steps}, "
-              f"total updates: {self.updates}, "
-              f"reward: {round(episode_reward, 2)}")
+        self.writer.add_scalar(
+            'reward/train', episode_reward, self.total_steps)
+        print(f"Episode: {episode:<4} \t"
+              f"total steps: {self.total_steps:<7} \t"
+              f"episode steps: {episode_steps:<4} \t"
+              f"reward: {episode_reward:<5.1f}")
 
-    def append_memory(self):
-        state, action, reward, next_state, done =\
-            self.buff.get(self.agent.gamma)
+    def append_memory(self, next_state, done):
+        state, action, reward = self.buff.get(self.agent.gamma)
         if self.agent.use_per:
             error = self.agent.calc_q(*self.agent.get_batch(
                 state, action, reward, next_state, done)).item()
@@ -189,10 +185,10 @@ class Trainer():
             'reward/test', mean_return, self.total_steps)
 
         print("----------------------------------------")
-        print(f"Num steps: {self.total_steps}, "
-              f"Test Return: {round(mean_return, 2)}"
-              f" +/- {round(std_return, 2)}")
-        print("Actions: ", np.round(action_bar / action_bar.sum(), 3))
+        print(f"Num steps   : {self.total_steps: 7}\n"
+              f"Test return : {round(mean_return, 2): 4.2f}"
+              f" +/-{round(std_return, 2): 4.2f}")
+        print("Action count: ", np.round(action_bar / action_bar.sum(), 3))
         print("----------------------------------------")
 
     def train(self):

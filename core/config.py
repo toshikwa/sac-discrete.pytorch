@@ -44,7 +44,7 @@ def get_configs():
         '--start_steps', type=int, default=20000,
         help='Steps sampling random actions.')
     parser.add_argument(
-        '--target_annealing_ratio', type=float, default=0.2,
+        '--target_annealing_ratio', type=float, default=0.0,
         help='Target annealing ratio.')
     parser.add_argument(
         '--per', action="store_true",
