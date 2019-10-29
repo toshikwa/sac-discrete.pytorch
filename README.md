@@ -43,3 +43,4 @@ python core/main.py --env_name MsPacmanNoFrameskip-v4 --cuda --per
 
 Scores after 100,000 steps are around 600, which is comparable with the paper.
 
+![mspacman](https://user-images.githubusercontent.com/37267851/67738428-e4d57480-fa51-11e9-94b2-1492760e3907.gif)
