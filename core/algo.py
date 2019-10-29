@@ -20,6 +20,7 @@ class SacDiscrete(object):
         self.target_updates_per_steps = configs.target_updates_per_steps
         self.start_steps = configs.start_steps
         self.num_steps = configs.num_steps
+        self.use_per = configs.per
 
         # ---- critic ---- #
         # network
@@ -39,8 +40,9 @@ class SacDiscrete(object):
         self.hard_update()
 
         # ---- entropy ---- #
-        self.target_entropy = -np.log(1.0/action_space.n)
-        self.target_annealing = self.target_entropy * 0.5 / self.num_steps
+        self.target_entropy = -np.log(1.0/action_space.n) * 0.98
+        self.target_annealing = self.target_entropy * 0.2 *\
+            configs.update_every_n_steps / self.num_steps
         self.log_alpha = torch.zeros(
             1, requires_grad=True, device=self.device)
         self.alpha = self.log_alpha.exp()
@@ -70,7 +72,7 @@ class SacDiscrete(object):
         return action.detach().cpu().numpy()[0]
 
     def calc_critic_loss(self, state_batch, action_batch, reward_batch,
-                         next_state_batch, done_batch):
+                         next_state_batch, done_batch, weight=None):
         with torch.no_grad():
             # sample action
             next_state_action, action_probs, log_action_probs =\
@@ -93,14 +95,19 @@ class SacDiscrete(object):
         # (num_batches, 1)
         qf1 = qf1.gather(1, action_batch.long())
         qf2 = qf2.gather(1, action_batch.long())
+
         # loss
-        qf1_loss = F.mse_loss(qf1, next_q_value)
-        qf2_loss = F.mse_loss(qf2, next_q_value)
+        if weight is None:
+            qf1_loss = F.mse_loss(qf1, next_q_value)
+            qf2_loss = F.mse_loss(qf2, next_q_value)
+        else:
+            qf1_loss = ((qf1 - next_q_value).pow(2) * weight).mean()
+            qf2_loss = ((qf2 - next_q_value).pow(2) * weight).mean()
 
         return qf1_loss, qf2_loss, qf1.clone().detach().mean(),\
             qf2.clone().detach().mean()
 
-    def calc_actor_loss(self, state_batch):
+    def calc_actor_loss(self, state_batch, weight=None):
         # sample action and probs
         action, action_probs, log_action_probs =\
             self.policy.sample(state_batch)
@@ -109,35 +116,60 @@ class SacDiscrete(object):
         min_qf_pi = torch.min(qf1_pi, qf2_pi)
         # loss
         inside_term = self.alpha * log_action_probs - min_qf_pi
-        inside_term = torch.sum(action_probs * inside_term, dim=1)
-        policy_loss = inside_term.mean()
-        # entropies: (num_batches, )
+        inside_term = torch.sum(
+            action_probs * inside_term, dim=1, keepdim=True)
+        if weight is None:
+            policy_loss = inside_term.mean()
+        else:
+            policy_loss = (weight * inside_term).mean()
+        # entropies: (num_batches, 1)
         entropies = -torch.sum(
-            action_probs * log_action_probs, dim=1)
+            action_probs * log_action_probs, dim=1, keepdim=True)
         return policy_loss, entropies
 
-    def calculate_alpha_loss(self, entropies):
-        alpha_loss = -(
-            self.log_alpha *
-            (-entropies + self.target_entropy).detach()
-            ).mean()
+    def calculate_alpha_loss(self, entropies, weight=None):
+        if weight is None:
+            alpha_loss = -(
+                self.log_alpha *
+                (-entropies + self.target_entropy).detach()
+                ).mean()
+        else:
+            alpha_loss = -(
+                self.log_alpha * weight *
+                (-entropies + self.target_entropy).detach()
+                ).mean()
         return alpha_loss
 
     def update_parameters(self, memory, batch_size, total_steps, writer):
-        # sample batches
-        state_batch, action_batch, reward_batch,\
-            next_state_batch, done_batch = memory.sample(batch_size=batch_size)
+        if self.use_per:
+            batch, idx, weight = memory.sample(batch_size=batch_size)
+            state_batch = batch["state"]
+            action_batch = batch["action"]
+            reward_batch = batch["reward"]
+            next_state_batch = batch["next_state"]
+            done_batch = batch["done"]
+            weight = torch.FloatTensor(weight).unsqueeze(-1).to(self.device)
+        else:
+            state_batch, action_batch, reward_batch, next_state_batch,\
+                done_batch = memory.sample(batch_size=batch_size)
+            weight = None
 
         # loss of critics
         qf1_loss, qf2_loss, mean_Q1, mean_Q2 = self.calc_critic_loss(
             state_batch, action_batch, reward_batch, next_state_batch,
-            done_batch)
+            done_batch, weight)
 
         # loss of the actor
-        policy_loss, entropies = self.calc_actor_loss(state_batch)
+        policy_loss, entropies = self.calc_actor_loss(state_batch, weight)
 
         # loss of the alpha
-        alpha_loss = self.calculate_alpha_loss(entropies)
+        alpha_loss = self.calculate_alpha_loss(entropies, weight)
+
+        if self.use_per:
+            error = self.calc_q(
+                state_batch, action_batch, reward_batch, next_state_batch,
+                done_batch)
+            memory.update_priority(idx, error.reshape(-1))
 
         # update
         self._update(
@@ -190,6 +222,31 @@ class SacDiscrete(object):
             for p in network:
                 torch.nn.utils.clip_grad_norm_(p.parameters(), grad_clip)
         optim.step()
+
+    def get_batch(self, state, action, reward, next_state, done):
+        state = torch.FloatTensor(state).unsqueeze(0).to(self.device)
+        action = torch.FloatTensor([action]).unsqueeze(-1).to(self.device)
+        reward = torch.FloatTensor([reward]).unsqueeze(-1).to(self.device)
+        next_state = torch.FloatTensor(
+            next_state).unsqueeze(0).to(self.device)
+        done = torch.FloatTensor([done]).unsqueeze(-1).to(self.device)
+        return state, action, reward, next_state, done
+
+    def calc_q(self, state, action, reward, next_state, done):
+        with torch.no_grad():
+            curr_q1, _ = self.critic(state)
+            curr_q1 = curr_q1.gather(1, action.long())
+            next_action, action_prob, log_action_prob =\
+                self.policy.sample(next_state)
+            next_q1, next_q2 =\
+                self.critic_target(next_state)
+            next_q_min = (action_prob * (
+                torch.min(next_q1, next_q2) - self.alpha * log_action_prob
+                )).mean(dim=1, keepdim=True)
+            next_q_value = reward + (1.0 - done)\
+                * (self.gamma ** self.multi_step) * next_q_min
+
+        return torch.abs(curr_q1 - next_q_value).cpu().numpy()
 
     def soft_update(self):
         for target, source in zip(

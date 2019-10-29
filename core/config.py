@@ -11,7 +11,7 @@ def get_configs():
         '--batch_size', type=int, default=64,
         help='Batch size.')
     parser.add_argument(
-        '--replay_buffer_size', type=int, default=1000000,
+        '--replay_buffer_size', type=int, default=100000,
         help='Buffer size.')
     parser.add_argument(
         '--gamma', type=float, default=0.99,
@@ -43,6 +43,9 @@ def get_configs():
     parser.add_argument(
         '--start_steps', type=int, default=20000,
         help='Steps sampling random actions.')
+    parser.add_argument(
+        '--per', action="store_true",
+        help='If use prioritized experience replay or not.')
 
     # training configs
     parser.add_argument(

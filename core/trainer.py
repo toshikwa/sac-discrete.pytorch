@@ -5,11 +5,11 @@ import numpy as np
 import torch
 from torch.utils.tensorboard import SummaryWriter
 from gym import wrappers
-import matplotlib.pyplot as plt
 
 from env import make_pytorch_env
 from algo import SacDiscrete
 from memory import ReplayMemory, MultiStepBuff
+from per import PER
 
 
 CORE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -45,14 +45,15 @@ class Trainer():
         self.writer = SummaryWriter(
             log_dir=os.path.join(self.logdir, 'summary'))
 
-        # replay memory
+        # memory
         self.buff = MultiStepBuff(capacity=self.agent.multi_step)
-        self.memory = ReplayMemory(
-            configs.replay_buffer_size, self.device)
-
-        # return history
-        self.mean_return_history = np.array([], dtype=np.float)
-        self.std_return_history = np.array([], dtype=np.float)
+        if self.agent.use_per:
+            self.memory = PER(
+                configs.replay_buffer_size, self.env.observation_space.shape,
+                (1,), self.device)
+        else:
+            self.memory = ReplayMemory(
+                configs.replay_buffer_size, self.device)
 
         self.env_name = configs.env_name
         self.vis = configs.vis
@@ -65,9 +66,7 @@ class Trainer():
         self.max_episode_steps = self.env.spec.tags.get(
             'wrapper_config.TimeLimit.max_episode_steps')
 
-        # training steps
         self.total_steps = 0
-        # update counts
         self.updates = 0
 
     def update(self):
@@ -109,7 +108,6 @@ class Trainer():
             # clip reward
             clipped_reward = max(min(reward, 1.0), -1.0)
 
-            # append to multi-step buffer
             self.buff.push(
                 state, action, clipped_reward, next_state, masked_done)
 
@@ -141,8 +139,14 @@ class Trainer():
     def append_memory(self):
         state, action, reward, next_state, done =\
             self.buff.get(self.agent.gamma)
-        self.memory.push(
-            state, action, reward, next_state, done)
+        if self.agent.use_per:
+            error = self.agent.calc_q(*self.agent.get_batch(
+                state, action, reward, next_state, done)).item()
+            self.memory.push(
+                state, action, reward, next_state, done, error)
+        else:
+            self.memory.push(
+                state, action, reward, next_state, done)
 
     def _is_eval(self):
         return self.total_steps % self.eval_per_iters == 0
