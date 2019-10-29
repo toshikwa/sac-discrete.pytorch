@@ -17,14 +17,26 @@ def get_configs():
         '--gamma', type=float, default=0.99,
         help='Discount factor for the reward.')
     parser.add_argument(
+        '--update_type', choices=['soft', 'hard'], default='soft',
+        help='Type of target update.')
+    parser.add_argument(
+        '--tau', type=float, default=0.005,
+        help='Target smoothing coefficient for soft update.')
+    parser.add_argument(
+        '--target_updates_per_steps', type=int, default=8000,
+        help='Target updates per iterations for hard update.')
+    parser.add_argument(
+        '--grad_clip', type=float, default=5.0,
+        help='Gradient norm clipping.')
+    parser.add_argument(
+        '--multi_step', type=int, default=3,
+        help='Multi-step rewards.')
+    parser.add_argument(
         '--update_every_n_steps', type=int, default=4,
         help='Environment steps per update.')
     parser.add_argument(
         '--learning_per_update', type=int, default=1,
         help='Learning updates per learning.')
-    parser.add_argument(
-        '--target_updates_per_steps', type=int, default=8000,
-        help='Target updates per iterations.')
     parser.add_argument(
         '--lr', type=float, default=0.0003,
         help='Learning rate.')

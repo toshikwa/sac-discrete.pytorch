@@ -10,7 +10,6 @@ import matplotlib.pyplot as plt
 from env import make_pytorch_env
 from algo import SacDiscrete
 from memory import ReplayMemory, MultiStepBuff
-from vis import plot_return_history
 
 
 CORE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -45,10 +44,6 @@ class Trainer():
         # writer
         self.writer = SummaryWriter(
             log_dir=os.path.join(self.logdir, 'summary'))
-        # monitor
-        self.env = wrappers.Monitor(
-            self.env, os.path.join(self.logdir, 'monitor'),
-            video_callable=lambda ep: ep % 100 == 0)
 
         # replay memory
         self.buff = MultiStepBuff(capacity=self.agent.multi_step)
@@ -161,7 +156,11 @@ class Trainer():
         episodes = 10
         returns = np.zeros((episodes,), dtype=np.float)
         env = make_pytorch_env(self.env_name)
-        action_dist = np.zeros((env.action_space.n), np.int)
+        env = wrappers.Monitor(
+            env, os.path.join(
+                self.logdir, 'monitor', f'step-{self.total_steps}'),
+            video_callable=lambda x: True)
+        action_bar = np.zeros((env.action_space.n), np.int)
 
         for i in range(episodes):
             state = env.reset()
@@ -171,7 +170,7 @@ class Trainer():
                 if self.vis:
                     env.render()
                 action = self.agent.select_action(state, eval=True)
-                action_dist[action] += 1
+                action_bar[action] += 1
                 next_state, reward, done, _ = env.step(action)
                 episode_reward += reward
                 state = next_state
@@ -182,10 +181,6 @@ class Trainer():
         mean_return = np.mean(returns)
         std_return = np.std(returns)
 
-        fig = plt.figure()
-        plt.bar(np.arange(len(action_dist)), action_dist)
-        self.writer.add_figure(
-            'selected_action', fig, self.total_steps)
         self.writer.add_scalar(
             'reward/test', mean_return, self.total_steps)
 
@@ -193,26 +188,8 @@ class Trainer():
         print(f"Num steps: {self.total_steps}, "
               f"Test Return: {round(mean_return, 2)}"
               f" +/- {round(std_return, 2)}")
-        print(np.round(action_dist / action_dist.sum(), 3))
+        print("Actions: ", np.round(action_bar / action_bar.sum(), 3))
         print("----------------------------------------")
-
-        # save return
-        self.mean_return_history = np.append(
-            self.mean_return_history, mean_return)
-        self.std_return_history = np.append(
-            self.std_return_history, std_return)
-        np.save(
-            os.path.join(self.logdir, 'mean_return_history.npy'),
-            self.mean_return_history)
-        np.save(
-            os.path.join(self.logdir, 'std_return_history.npy'),
-            self.std_return_history)
-
-        # plot
-        plot_return_history(
-            self.mean_return_history, self.std_return_history,
-            os.path.join(self.logdir, 'test_rewards.png'),
-            self.env_name, self.eval_per_iters)
 
     def train(self):
         # iterate until convergence

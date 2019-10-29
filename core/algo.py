@@ -13,11 +13,13 @@ class SacDiscrete(object):
             "cuda" if configs.cuda and torch.cuda.is_available() else "cpu")
         self.gamma = configs.gamma
         self.lr = configs.lr
-        self.tau = 0.005
-        self.grad_clip = 5.0
-        self.multi_step = 3
+        self.grad_clip = configs.grad_clip
+        self.multi_step = configs.multi_step
+        self.update_type = configs.update_type
+        self.tau = configs.tau
         self.target_updates_per_steps = configs.target_updates_per_steps
         self.start_steps = configs.start_steps
+        self.num_steps = configs.num_steps
 
         # ---- critic ---- #
         # network
@@ -37,7 +39,8 @@ class SacDiscrete(object):
         self.hard_update()
 
         # ---- entropy ---- #
-        self.target_entropy = -np.log(1.0/action_space.n) * 0.98
+        self.target_entropy = -np.log(1.0/action_space.n)
+        self.target_annealing = self.target_entropy * 0.5 / self.num_steps
         self.log_alpha = torch.zeros(
             1, requires_grad=True, device=self.device)
         self.alpha = self.log_alpha.exp()
@@ -51,6 +54,9 @@ class SacDiscrete(object):
         # optimizer
         self.policy_optim = Adam(
             self.policy.parameters(), lr=self.lr, eps=1e-4)
+
+    def _step_target_entropy(self):
+        self.target_entropy -= self.target_annealing
 
     def select_action(self, state, eval=False):
         state = torch.FloatTensor(state).to(self.device).unsqueeze(0)
@@ -149,10 +155,14 @@ class SacDiscrete(object):
         self.alpha = self.log_alpha.exp()
         alpha_tlogs = self.alpha.clone()
 
-        self.soft_update()
-        # if total_steps % self.target_updates_per_steps == 0:
-        #     print("HARD UPDATE")
-        #     self.hard_update()
+        # soft update
+        if self.update_type == 'soft':
+            self.soft_update()
+        # hard update
+        elif total_steps % self.target_updates_per_steps == 0:
+            self.hard_update()
+
+        self._step_target_entropy()
 
         writer.add_scalar(
             'loss/critic_1', qf1_loss.item(), total_steps)
