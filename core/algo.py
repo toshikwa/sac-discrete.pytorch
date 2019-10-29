@@ -41,7 +41,8 @@ class SacDiscrete(object):
 
         # ---- entropy ---- #
         self.target_entropy = -np.log(1.0/action_space.n) * 0.98
-        self.target_annealing = self.target_entropy * 0.2 *\
+        self.target_annealing = self.target_entropy *\
+            configs.target_annealing_ratio * configs.learning_per_update *\
             configs.update_every_n_steps / self.num_steps
         self.log_alpha = torch.zeros(
             1, requires_grad=True, device=self.device)
