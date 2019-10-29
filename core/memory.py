@@ -4,6 +4,40 @@ import numpy as np
 import torch
 
 
+class MultiStepBuff:
+    keys = ["state", "action", "reward", "next_state", "done"]
+
+    def __init__(self, capacity=3):
+        self.capacity = capacity
+        self.reset()
+
+    def push(self, state, action, reward, next_state, done):
+        self.memory["state"].append(state)
+        self.memory["action"].append(action)
+        self.memory["reward"].append(reward)
+        self.memory["next_state"].append(next_state)
+        self.memory["done"].append(done)
+
+    def get(self, gamma=0.99):
+        reward = np.sum([
+            r * (gamma ** i) for i, r in enumerate(self.memory["reward"])
+        ])
+        state = self.memory["state"].popleft()
+        action = self.memory["action"].popleft()
+        _ = self.memory["reward"].popleft()
+        next_state = self.memory["next_state"].popleft()
+        done = self.memory["done"].popleft()
+        return state, action, reward, next_state, done
+
+    def reset(self):
+        self.memory = {
+            key: deque(maxlen=self.capacity)
+            for key in self.keys}
+
+    def __len__(self):
+        return len(self.memory["state"])
+
+
 class ReplayMemory:
 
     def __init__(self, capacity, device):

@@ -15,6 +15,7 @@ class SacDiscrete(object):
         self.lr = configs.lr
         self.tau = 0.005
         self.grad_clip = 5.0
+        self.multi_step = 3
         self.target_updates_per_steps = configs.target_updates_per_steps
         self.start_steps = configs.start_steps
 
@@ -78,7 +79,8 @@ class SacDiscrete(object):
             min_qf_next_target = min_qf_next_target.mean(dim=1).unsqueeze(-1)
             # next Q values: (num_batches, 1)
             next_q_value = reward_batch +\
-                (1.0 - done_batch) * self.gamma * min_qf_next_target
+                (1.0 - done_batch) * (self.gamma ** self.multi_step)\
+                * min_qf_next_target
 
         # (num_batches, num_actions)
         qf1, qf2 = self.critic(state_batch)
@@ -108,10 +110,10 @@ class SacDiscrete(object):
             action_probs * log_action_probs, dim=1)
         return policy_loss, entropies
 
-    def calculate_alpha_loss(self, negative_entropies):
+    def calculate_alpha_loss(self, entropies):
         alpha_loss = -(
             self.log_alpha *
-            (negative_entropies + self.target_entropy).detach()
+            (-entropies + self.target_entropy).detach()
             ).mean()
         return alpha_loss
 
@@ -129,7 +131,7 @@ class SacDiscrete(object):
         policy_loss, entropies = self.calc_actor_loss(state_batch)
 
         # loss of the alpha
-        alpha_loss = self.calculate_alpha_loss(-entropies)
+        alpha_loss = self.calculate_alpha_loss(entropies)
 
         # update
         self._update(

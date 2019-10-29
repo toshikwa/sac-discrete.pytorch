@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 
 from env import make_pytorch_env
 from algo import SacDiscrete
-from memory import ReplayMemory
+from memory import ReplayMemory, MultiStepBuff
 from vis import plot_return_history
 
 
@@ -49,7 +49,9 @@ class Trainer():
         self.env = wrappers.Monitor(
             self.env, os.path.join(self.logdir, 'monitor'),
             video_callable=lambda ep: ep % 100 == 0)
+
         # replay memory
+        self.buff = MultiStepBuff(capacity=self.agent.multi_step)
         self.memory = ReplayMemory(
             configs.replay_buffer_size, self.device)
 
@@ -87,6 +89,7 @@ class Trainer():
         done = False
         # initial state
         state = self.env.reset()
+        self.buff.reset()
 
         while not done:
             if self.vis:
@@ -111,9 +114,19 @@ class Trainer():
             # clip reward
             clipped_reward = max(min(reward, 1.0), -1.0)
 
-            # store in the replay memory
-            self.memory.push(
+            # append to multi-step buffer
+            self.buff.push(
                 state, action, clipped_reward, next_state, masked_done)
+
+            # store in the replay memory
+            if len(self.buff) == self.agent.multi_step:
+                self.append_memory()
+
+            if done:
+                while len(self.buff) > 0:
+                    self.append_memory()
+                    self.buff.memory["reward"].append(0.0)
+
             state = next_state
 
             if self._is_eval():
@@ -130,9 +143,14 @@ class Trainer():
               f"total updates: {self.updates}, "
               f"reward: {round(episode_reward, 2)}")
 
+    def append_memory(self):
+        state, action, reward, next_state, done =\
+            self.buff.get(self.agent.gamma)
+        self.memory.push(
+            state, action, reward, next_state, done)
+
     def _is_eval(self):
-        return self.total_steps % self.eval_per_iters == 0 and\
-            self.start_steps <= self.total_steps
+        return self.total_steps % self.eval_per_iters == 0
 
     def _is_update(self):
         return len(self.memory) > self.batch_size and\
