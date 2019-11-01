@@ -35,12 +35,18 @@ I changed some implementations to get more stable trainings or easy implementati
 
 ### Training
 
-I just teseted with **MsPacman** environment like below. (I didn't use PER here because I slowed down training.)
+You can train SAC-Discrete in atari envs.
 
 ```
-python core/main.py --cuda --target_annealing_ratio 0.4
+python core/main.py --cuda --env_name ${name of environment}
 ```
 
-Scores after 100,000 steps are around 600, which is comparable with the paper.
+For example, the score after training 100,000 steps in **MsPacman** using command below is around 600, which is comparable with the paper.
 
-<img src="https://user-images.githubusercontent.com/37267851/67809830-c9fc1200-fadc-11e9-8f48-799a19689dd6.gif" title="MsPacman" width=250>
+```
+python core/main.py --cuda --env_name MsPacmanNoFrameskip-v4 --target_annealing_ratio 0.4
+```
+
+### Result
+
+<img src="https://user-images.githubusercontent.com/37267851/67809830-c9fc1200-fadc-11e9-8f48-799a19689dd6.gif" title="MsPacman" width=200> <img src="https://user-images.githubusercontent.com/37267851/68014576-4f491780-fcd3-11e9-9ca4-94df51cb38f2.gif" title="Qbert" width=200> <img src="https://user-images.githubusercontent.com/37267851/68014616-71db3080-fcd3-11e9-85f1-0d3dda9f8885.gif" title="SpaceInvador" width=200> <img src="https://user-images.githubusercontent.com/37267851/68014670-8cada500-fcd3-11e9-8cac-05409e3e84b0.gif" title="Freeway" width=200>
