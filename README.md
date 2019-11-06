@@ -49,4 +49,4 @@ python core/main.py --cuda --env_name MsPacmanNoFrameskip-v4 --target_annealing_
 
 ### Result
 
-<img src="https://user-images.githubusercontent.com/37267851/67809830-c9fc1200-fadc-11e9-8f48-799a19689dd6.gif" title="MsPacman" width=200> <img src="https://user-images.githubusercontent.com/37267851/68014576-4f491780-fcd3-11e9-9ca4-94df51cb38f2.gif" title="Qbert" width=200> <img src="https://user-images.githubusercontent.com/37267851/68014616-71db3080-fcd3-11e9-85f1-0d3dda9f8885.gif" title="SpaceInvador" width=200> <img src="https://user-images.githubusercontent.com/37267851/68014670-8cada500-fcd3-11e9-8cac-05409e3e84b0.gif" title="Freeway" width=200>
+<img src="https://user-images.githubusercontent.com/37267851/67809830-c9fc1200-fadc-11e9-8f48-799a19689dd6.gif" title="MsPacman" width=250>
