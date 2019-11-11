@@ -1,46 +1,30 @@
-# SAC-Discrete in PyTorch
-This is a PyTorch implementation of SAC-Discrete([Christodoulou. 2019](https://arxiv.org/abs/1910.07207)) with **Prioritized experience replay**([Schaul et al. 2015](https://arxiv.org/abs/1511.05952)) and **Multi-step learning**, which is used in Rainbow([Hessel et al. 2017](https://arxiv.org/abs/1710.02298)).
+# Soft Actor-Critic in PyTorch
+A PyTorch implementation of SAC-Discrete[[1]](#references) with n-step rewards and prioritized experience replay[[2]](#references). It's based on [the auther's implementation](https://github.com/p-christ/Deep-Reinforcement-Learning-Algorithms-with-PyTorch), however it doesn't support for atari environments.
 
-I referred to some implementations below.
-- [Authors's implementation](https://github.com/p-christ/Deep-Reinforcement-Learning-Algorithms-with-PyTorch) (however, without codes for atari's envs.)
-- [The implementation of SAC](https://github.com/ku2482/soft-actor-critic.pytorch) (for continuous control.)
+If you want to train a distributed version of SAC-Discrete or a continuous version of Soft Actor-Critic, please reffer to [rltorch](https://github.com/ku2482/rltorch) repository or [Soft Actor-Critic](https://github.com/ku2482/soft-actor-critic.pytorch) repository respectively.
 
 ## Requirements
 You can install liblaries using `pip install -r requirements.txt`.
 
-## Training
-
-### NOTE
-
-I changed some implementations to get more stable trainings or easy implementations.
-
-- Prioritized experience replay
-  - You can use PER with `--per`.
-- Multi-step learning
-  - You can use Multi-step learning with `--multi_step ${int number}`.
-
-- Target update
-  - In original paper, target network is updated as **hard update** with fixed interval.
-  - I updated target network as **soft update**, however, which doesn't seem to influence performance.
-  - You can use **hard update** with `--update_type 'hard'`.
-- Gradient norm clipping
-  - I use **gradient norm clipping** as author's implementation.
-  - You can specify clipping range with `--grad_clip ${float number}`
-- Entropy target annealing
-  - In original paper, target entropy is fixed as `np.log(action_space.n)*0.98`, which is maximum entropy multiplied by 0.98.
-  - I found this to large (not sure), and instead I annealled entropy target from `np.log(action_space.n)*0.98` to `np.log(action_space.n)*0.98*(1-target_annealing_ratio)` during training.
-  - You can use original (fixed) target with `--target_annealing_ratio 0.0`.
-
-
-
-### MsPacman
-
-I just teseted with **MsPacman** environment like below.
+## Examples
+You can train SAC-Discrete agent like this example [here](https://github.com/ku2482/sac-discrete.pytorch/blob/master/code/main.py).
 
 ```
-python core/main.py --env_name MsPacmanNoFrameskip-v4 --cuda --per
+python code/main.py \
+[--env_id str(default MsPacmanNoFrameskip-v4)] \
+[--cuda (optional)] \
+[--seed int(default 0)]
 ```
 
-Scores after 100,000 steps are around 600, which is comparable with the paper.
+If you want to use n-step rewards and prioritized experience replay, set `multi_step=3` and `per=True` in configs.
+
+## Results
+
+I just teseted in **MsPacman** environment. A result after 100,000 steps will be around 600, which is comparable with results of the paper.
 
 ![mspacman](https://user-images.githubusercontent.com/37267851/67738428-e4d57480-fa51-11e9-94b2-1492760e3907.gif)
+
+## References
+[[1]](https://arxiv.org/abs/1910.07207) Christodoulou, Petros. "Soft Actor-Critic for Discrete Action Settings." arXiv preprint arXiv:1910.07207 (2019).
+
+[[2]](https://arxiv.org/abs/1511.05952) Schaul, Tom, et al. "Prioritized experience replay." arXiv preprint arXiv:1511.05952 (2015).

@@ -14,12 +14,11 @@ class SacDiscreteAgent:
 
     def __init__(self, env, log_dir, num_steps=100000, batch_size=64,
                  lr=0.0003, memory_size=1000000, gamma=0.99,
-                 target_update_type='soft', tau=0.005,
-                 target_update_interval=8000, multi_step=3, per=False,
-                 alpha=0.6, beta=0.4, beta_annealing=0.0001, grad_clip=None,
-                 update_every_n_steps=4, learnings_per_update=1,
-                 start_steps=20000, log_interval=10, eval_interval=1000,
-                 cuda=True, seed=0):
+                 target_update_type='soft', target_update_interval=8000,
+                 tau=0.005,  multi_step=3, per=False, alpha=0.6, beta=0.4,
+                 beta_annealing=0.0001, grad_clip=None, update_every_n_steps=4,
+                 learnings_per_update=1, start_steps=20000, log_interval=10,
+                 eval_interval=1000, cuda=True, seed=0):
         self.env = env
 
         torch.manual_seed(seed)
@@ -46,17 +45,17 @@ class SacDiscreteAgent:
         # disable gradient calculations of the target network
         grad_false(self.critic_target)
 
-        self.policy_optim = Adam(self.policy.parameters(), lr=lr)
-        self.q1_optim = Adam(self.critic.Q1.parameters(), lr=lr)
-        self.q2_optim = Adam(self.critic.Q2.parameters(), lr=lr)
+        self.policy_optim = Adam(self.policy.parameters(), lr=lr, eps=1e-4)
+        self.q1_optim = Adam(self.critic.Q1.parameters(), lr=lr, eps=1e-4)
+        self.q2_optim = Adam(self.critic.Q2.parameters(), lr=lr, eps=1e-4)
 
-        # Target entropy is -log(1/|A|) * 0.98 (= maximum entropy * 0.98).
-        self.target_entropy = -np.log(1.0/self.env.action_space.n) * 0.98
+        # Target entropy is -log(1/|A|) * 0.8 (= maximum entropy * 0.8).
+        self.target_entropy = -np.log(1.0/self.env.action_space.n) * 0.8
         # We optimize log(alpha), instead of alpha.
         self.log_alpha = torch.zeros(
             1, requires_grad=True, device=self.device)
         self.alpha = self.log_alpha.exp()
-        self.alpha_optim = Adam([self.log_alpha], lr=lr)
+        self.alpha_optim = Adam([self.log_alpha], lr=lr, eps=1e-4)
 
         # DummyMemory efficiently stores FrameStacked states.
         if per:
@@ -177,7 +176,7 @@ class SacDiscreteAgent:
 
             if self.per:
                 batch = to_batch(
-                    state, action, reward, next_state, masked_done,
+                    state, action, clipped_reward, next_state, masked_done,
                     self.device)
                 with torch.no_grad():
                     curr_q1, _ = self.calc_current_q(*batch)
