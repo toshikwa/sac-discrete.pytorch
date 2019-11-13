@@ -13,10 +13,11 @@ from utils import grad_false, hard_update, soft_update, to_batch,\
 class SacDiscreteAgent:
 
     def __init__(self, env, log_dir, num_steps=100000, batch_size=64,
-                 lr=0.0003, memory_size=1000000, gamma=0.99,
-                 target_update_type='soft', target_update_interval=8000,
-                 tau=0.005,  multi_step=3, per=False, alpha=0.6, beta=0.4,
-                 beta_annealing=0.0001, grad_clip=None, update_every_n_steps=4,
+                 target_entropy_ratio=0.98, lr=0.0003, memory_size=1000000,
+                 gamma=0.99, target_update_type='soft',
+                 target_update_interval=8000, tau=0.005, multi_step=1,
+                 per=False, alpha=0.6, beta=0.4, beta_annealing=0.0001,
+                 grad_clip=5.0, update_every_n_steps=4,
                  learnings_per_update=1, start_steps=1000, log_interval=10,
                  eval_interval=1000, cuda=True, seed=0):
         self.env = env
@@ -334,12 +335,13 @@ class SacDiscreteAgent:
             returns[i] = episode_reward
 
         mean_return = np.mean(returns)
+        std_return = np.std(returns)
 
         self.writer.add_scalar(
             'reward/test', mean_return, self.steps)
         print('-' * 60)
         print(f'Num steps: {self.steps:<5}  '
-              f'reward: {mean_return:<5.1f}')
+              f'reward: {mean_return:<5.1f} +/- {std_return:<5.1f}')
         print('-' * 60)
 
     def save_models(self):
