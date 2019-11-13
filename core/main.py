@@ -15,25 +15,25 @@ def run():
 
     # You can define configs in the external json or yaml file.
     configs = {
-        'num_steps': 100000,
+        'num_steps': 300000,
         'batch_size': 64,
         'lr': 0.0003,
         'memory_size': 1e6,
         'gamma': 0.99,
         'target_update_type': 'soft',  # 'soft' or 'hard'
-        'tau': 0.005,  # It's ignored if update_type='hard'
+        'tau': 0.003,  # It's ignored if update_type='hard'
         'target_update_interval': 8000,  # It's ignored if update_type='soft'
         'multi_step': 3,
-        'per': False,  # prioritized experience replay
+        'per': True,  # prioritized experience replay
         'alpha': 0.6,  # It's ignored when per=False.
         'beta': 0.4,  # It's ignored when per=False.
         'beta_annealing': 0.0001,  # It's ignored when per=False.
         'grad_clip': 5.0,
         'update_every_n_steps': 4,
         'learnings_per_update': 1,
-        'start_steps': 20000,
+        'start_steps': 5000,
         'log_interval': 10,
-        'eval_interval': 10000,
+        'eval_interval': 5000,
         'cuda': args.cuda,
         'seed': args.seed
     }

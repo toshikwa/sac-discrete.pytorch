@@ -11,13 +11,6 @@ def weights_init_he(m):
             torch.nn.init.constant_(m.bias, 0)
 
 
-def weights_init_xavier(m):
-    if isinstance(m, nn.Linear) or isinstance(m, nn.Conv2d):
-        torch.nn.init.xavier_uniform_(m.weight, gain=1)
-        if m.bias is not None:
-            torch.nn.init.constant_(m.bias, 0)
-
-
 class Flatten(nn.Module):
     def forward(self, x):
         return x.view(x.size(0), -1)
@@ -69,21 +62,21 @@ class CateoricalPolicy(BaseNetwork):
         super(CateoricalPolicy, self).__init__()
         self.policy = create_conv(num_channels, num_actions)
 
-    def act(self, state):
+    def act(self, states):
         # act with greedy policy
-        action_logits = self.policy(state)
-        greedy_actions = torch.argmax(action_logits, dim=1)
+        action_logits = self.policy(states)
+        greedy_actions = torch.argmax(
+            action_logits, dim=1, keepdim=True)
         return greedy_actions
 
-    def sample(self, state):
+    def sample(self, states):
         # act with exploratory policy
-        action_probs = F.softmax(self.policy(state), dim=1)
+        action_probs = F.softmax(self.policy(states), dim=1)
         action_dist = Categorical(action_probs)
         actions = action_dist.sample().view(-1, 1)
 
         # avoid numerical instability
-        z = action_probs == 0.0
-        z = z.float() * 1e-8
+        z = (action_probs == 0.0).float() * 1e-8
         log_action_probs = torch.log(action_probs + z)
 
         return actions, action_probs, log_action_probs

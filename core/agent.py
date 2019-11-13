@@ -17,15 +17,15 @@ class SacDiscreteAgent:
                  target_update_type='soft', target_update_interval=8000,
                  tau=0.005,  multi_step=3, per=False, alpha=0.6, beta=0.4,
                  beta_annealing=0.0001, grad_clip=None, update_every_n_steps=4,
-                 learnings_per_update=1, start_steps=20000, log_interval=10,
+                 learnings_per_update=1, start_steps=1000, log_interval=10,
                  eval_interval=1000, cuda=True, seed=0):
         self.env = env
 
         torch.manual_seed(seed)
         np.random.seed(seed)
         self.env.seed(seed)
-        torch.backends.cudnn.deterministic = True  # It harms a performance.
-        torch.backends.cudnn.benchmark = False  # It harms a performance.
+        # torch.backends.cudnn.deterministic = True  # It harms a performance.
+        # torch.backends.cudnn.benchmark = False  # It harms a performance.
 
         self.device = torch.device(
             "cuda" if cuda and torch.cuda.is_available() else "cpu")
@@ -49,8 +49,8 @@ class SacDiscreteAgent:
         self.q1_optim = Adam(self.critic.Q1.parameters(), lr=lr, eps=1e-4)
         self.q2_optim = Adam(self.critic.Q2.parameters(), lr=lr, eps=1e-4)
 
-        # Target entropy is -log(1/|A|) * 0.8 (= maximum entropy * 0.8).
-        self.target_entropy = -np.log(1.0/self.env.action_space.n) * 0.8
+        # Target entropy is -log(1/|A|) * 0.95 (= maximum entropy * 0.95).
+        self.target_entropy = -np.log(1.0/self.env.action_space.n) * 0.95
         # We optimize log(alpha), instead of alpha.
         self.log_alpha = torch.zeros(
             1, requires_grad=True, device=self.device)
@@ -139,7 +139,7 @@ class SacDiscreteAgent:
 
     def calc_target_q(self, states, actions, rewards, next_states, dones):
         with torch.no_grad():
-            next_actions, action_probs, log_action_probs =\
+            _, action_probs, log_action_probs =\
                 self.policy.sample(next_states)
             next_q1, next_q2 = self.critic_target(next_states)
             next_q = (action_probs * (
@@ -195,7 +195,8 @@ class SacDiscreteAgent:
                     episode_done=done)
 
             if self.is_update():
-                self.learn()
+                for _ in range(self.learnings_per_update):
+                    self.learn()
 
             if self.steps % self.eval_interval == 0:
                 self.evaluate()
@@ -291,30 +292,29 @@ class SacDiscreteAgent:
     def calc_policy_loss(self, batch, weights):
         states, actions, rewards, next_states, dones = batch
 
-        # We re-sample actions to calculate expectations of Q.
-        sampled_actions, action_probs, log_action_probs =\
-            self.policy.sample(states)
-        # Q with clipped double Q technique
-        q1, q2 = self.calc_current_q(states, sampled_actions, None, None, None)
+        # (log of) probabilities to calculate expectations of Q and entropies
+        _, action_probs, log_action_probs = self.policy.sample(states)
+        # Q for every actions to calculate expectations of Q
+        q1, q2 = self.critic(states)
         q = torch.min(q1, q2)
+
+        # expectations of entropies
+        entropies = -torch.sum(
+            action_probs * log_action_probs, dim=1, keepdim=True)
+        # expectations of Q
+        q = torch.sum(torch.min(q1, q2) * action_probs, dim=1, keepdim=True)
 
         # Policy objective is maximization of (Q + alpha * entropy) with
         # priority weights.
-        policy_loss = torch.sum(
-            action_probs * (self.alpha * log_action_probs - q),
-            dim=1, keepdim=True)
-        policy_loss = (weights * policy_loss).mean()
-
-        entropies = -torch.sum(
-            action_probs * log_action_probs, dim=1, keepdim=True)
+        policy_loss = (weights * (- q - self.alpha * entropies)).mean()
 
         return policy_loss, entropies
 
-    def calc_entropy_loss(self, entropy, weights):
+    def calc_entropy_loss(self, entropies, weights):
         # Intuitively, we increse alpha when entropy is less than target
         # entropy, vice versa.
         entropy_loss = -torch.mean(
-            self.log_alpha * (self.target_entropy - entropy).detach()
+            self.log_alpha * (self.target_entropy - entropies).detach()
             * weights)
         return entropy_loss
 
