@@ -50,8 +50,9 @@ class SacDiscreteAgent:
         self.q1_optim = Adam(self.critic.Q1.parameters(), lr=lr, eps=1e-4)
         self.q2_optim = Adam(self.critic.Q2.parameters(), lr=lr, eps=1e-4)
 
-        # Target entropy is -log(1/|A|) * 0.95 (= maximum entropy * 0.95).
-        self.target_entropy = -np.log(1.0/self.env.action_space.n) * 0.95
+        # Target entropy is -log(1/|A|) * ratio (= maximum entropy * ratio).
+        self.target_entropy =\
+            -np.log(1.0/self.env.action_space.n) * target_entropy_ratio
         # We optimize log(alpha), instead of alpha.
         self.log_alpha = torch.zeros(
             1, requires_grad=True, device=self.device)
