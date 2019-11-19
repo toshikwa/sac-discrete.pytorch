@@ -18,6 +18,17 @@ python code/main.py \
 
 If you want to use n-step rewards and prioritized experience replay, set `multi_step=3` and `per=True` in configs. Also, I modified `target_entropy_ratio` from 0.98 to 0.95, because 0.98 * maximum entropy seems too large for target entropy.
 
+You can test your trained agent.
+
+```
+python code/play.py \
+--log_name str(sac-discrete-*) \
+--env_id str(default MsPacmanNoFrameskip-v4) \
+--render \
+--cuda (optional) \
+--seed int(default 0)
+```
+
 ## Results
 Results of above example (with n-step rewards and prioritized experience replay) will be like below, which is comparable (if no better) with the paper.
 Note that scores reported in the paper are evaluated at 1e5 steps.
