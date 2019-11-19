@@ -21,7 +21,7 @@ If you want to use n-step rewards and prioritized experience replay, set `multi_
 ## Results
 Results of above example (with n-step rewards and prioritized experience replay) will be like below.
 
-<img src="https://user-images.githubusercontent.com/37267851/68798500-de720a00-0699-11ea-86f2-0c1b1d108ef5.png" title="graph" width=500><img src="https://user-images.githubusercontent.com/37267851/67809830-c9fc1200-fadc-11e9-8f48-799a19689dd6.gif" title="gif" width=300>
+<img src="https://user-images.githubusercontent.com/37267851/69165567-23cc8680-0b35-11ea-8a3c-b251bacce975.png" title="graph" width=500><img src="https://user-images.githubusercontent.com/37267851/67809830-c9fc1200-fadc-11e9-8f48-799a19689dd6.gif" title="gif" width=300>
 
 ## References
 [[1]](https://arxiv.org/abs/1910.07207) Christodoulou, Petros. "Soft Actor-Critic for Discrete Action Settings." arXiv preprint arXiv:1910.07207 (2019).
