@@ -40,13 +40,16 @@ def run():
     }
 
     env = make_pytorch_env(args.env_id, clip_rewards=False)
+    test_env = make_pytorch_env(
+        args.env_id, episode_life=False, clip_rewards=False)
 
     time = datetime.now().strftime("%Y%m%d-%H%M")
     log_dir = os.path.join(
         'logs', args.env_id,
         f'sac-discrete-seed{args.seed}-{time}')
 
-    agent = SacDiscreteAgent(env=env, log_dir=log_dir, **configs)
+    agent = SacDiscreteAgent(
+        env=env, test_env=test_env, log_dir=log_dir, **configs)
     agent.run()
 
 

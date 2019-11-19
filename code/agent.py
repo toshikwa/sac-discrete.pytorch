@@ -12,7 +12,7 @@ from utils import grad_false, hard_update, soft_update, to_batch,\
 
 class SacDiscreteAgent:
 
-    def __init__(self, env, log_dir, num_steps=100000, batch_size=64,
+    def __init__(self, env, test_env, log_dir, num_steps=100000, batch_size=64,
                  target_entropy_ratio=0.98, lr=0.0003, memory_size=1000000,
                  gamma=0.99, target_update_type='soft',
                  target_update_interval=8000, tau=0.005, multi_step=1,
@@ -21,10 +21,12 @@ class SacDiscreteAgent:
                  learnings_per_update=1, start_steps=1000, log_interval=10,
                  eval_interval=1000, cuda=True, seed=0):
         self.env = env
+        self.test_env = test_env
 
         torch.manual_seed(seed)
         np.random.seed(seed)
         self.env.seed(seed)
+        self.test_env.seed(seed)
         # torch.backends.cudnn.deterministic = True  # It harms a performance.
         # torch.backends.cudnn.benchmark = False  # It harms a performance.
 
@@ -325,12 +327,12 @@ class SacDiscreteAgent:
         returns = np.zeros((episodes,), dtype=np.float32)
 
         for i in range(episodes):
-            state = self.env.reset()
+            state = self.test_env.reset()
             episode_reward = 0.
             done = False
             while not done:
                 action = self.exploit(state)
-                next_state, reward, done, _ = self.env.step(action)
+                next_state, reward, done, _ = self.test_env.step(action)
                 episode_reward += reward
                 state = next_state
             returns[i] = episode_reward
@@ -352,5 +354,6 @@ class SacDiscreteAgent:
             os.path.join(self.model_dir, 'critic_target.pth'))
 
     def __del__(self):
-        self.writer.close()
         self.env.close()
+        self.test_env.close()
+        self.writer.close()
