@@ -19,7 +19,8 @@ python code/main.py \
 If you want to use n-step rewards and prioritized experience replay, set `multi_step=3` and `per=True` in configs. Also, I modified `target_entropy_ratio` from 0.98 to 0.95, because 0.98 * maximum entropy seems too large for target entropy.
 
 ## Results
-Results of above example (with n-step rewards and prioritized experience replay) will be like below.
+Results of above example (with n-step rewards and prioritized experience replay) will be like below, which is comparable (if no better) with the paper.
+Note that scores reported in the paper are evaluated at 1e5 steps.
 
 <img src="https://user-images.githubusercontent.com/37267851/69165567-23cc8680-0b35-11ea-8a3c-b251bacce975.png" title="graph" width=500><img src="https://user-images.githubusercontent.com/37267851/67809830-c9fc1200-fadc-11e9-8f48-799a19689dd6.gif" title="gif" width=300>
 
