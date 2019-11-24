@@ -64,14 +64,12 @@ class SacDiscreteAgent:
         # DummyMemory efficiently stores FrameStacked states.
         if per:
             # replay memory with prioritied experience replay
-            # See https://github.com/ku2482/rltorch/blob/master/rltorch/memory
             self.memory = DummyPrioritizedMemory(
                 memory_size, self.env.observation_space.shape,
                 (1,), self.device, gamma, multi_step,
                 alpha=alpha, beta=beta, beta_annealing=beta_annealing)
         else:
             # replay memory without prioritied experience replay
-            # See https://github.com/ku2482/rltorch/blob/master/rltorch/memory
             self.memory = DummyMultiStepMemory(
                 memory_size, self.env.observation_space.shape,
                 (1,), self.device, gamma, multi_step)

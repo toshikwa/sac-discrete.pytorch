@@ -129,7 +129,6 @@ class DummyMemory(dict):
             self[key].extend(memory[key])
 
         num_data = len(memory['state'])
-        assert len(memory['state']) == len(memory['priority'])
         if self._p + num_data <= self.capacity:
             for key in self.np_keys:
                 self[key][self._p:self._p+num_data] = memory[key]
