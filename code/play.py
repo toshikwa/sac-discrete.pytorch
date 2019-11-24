@@ -1,8 +1,8 @@
 import os
 import argparse
 import torch
-from rltorch.env import make_pytorch_env, wrap_monitor
 
+from env import make_pytorch_env, wrap_monitor
 from model import CateoricalPolicy
 from utils import grad_false
 
@@ -36,7 +36,8 @@ def run():
 
     def exploit(state):
         # act without randomness
-        state = torch.FloatTensor(state).unsqueeze(0).to(device)
+        state = torch.ByteTensor(
+            state).unsqueeze(0).to(device).float() / 255.
         with torch.no_grad():
             action = policy.act(state)
         return action.item()

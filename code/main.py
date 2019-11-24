@@ -1,8 +1,8 @@
 import os
 import argparse
 from datetime import datetime
-from rltorch.env import make_pytorch_env
 
+from env import make_pytorch_env
 from agent import SacDiscreteAgent
 
 

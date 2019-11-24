@@ -4,10 +4,12 @@ import torch
 
 
 def to_batch(state, action, reward, next_state, done, device):
-    state = torch.FloatTensor(state).unsqueeze(0).to(device)
+    state = torch.ByteTensor(
+        state).unsqueeze(0).to(device).float() / 255.
     action = torch.FloatTensor([action]).view(1, -1).to(device)
     reward = torch.FloatTensor([reward]).unsqueeze(0).to(device)
-    next_state = torch.FloatTensor(next_state).unsqueeze(0).to(device)
+    next_state = torch.ByteTensor(
+        next_state).unsqueeze(0).to(device).float() / 255.
     done = torch.FloatTensor([done]).unsqueeze(0).to(device)
     return state, action, reward, next_state, done
 

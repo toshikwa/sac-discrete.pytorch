@@ -3,8 +3,8 @@ import numpy as np
 import torch
 from torch.optim import Adam
 from torch.utils.tensorboard import SummaryWriter
-from rltorch.memory import DummyMultiStepMemory, DummyPrioritizedMemory
 
+from memory import DummyMultiStepMemory, DummyPrioritizedMemory
 from model import TwinnedQNetwork, CateoricalPolicy
 from utils import grad_false, hard_update, soft_update, to_batch,\
     update_params, RunningMeanStats
@@ -123,14 +123,16 @@ class SacDiscreteAgent:
 
     def explore(self, state):
         # act with randomness
-        state = torch.FloatTensor(state).unsqueeze(0).to(self.device)
+        state = torch.ByteTensor(
+            state).unsqueeze(0).to(self.device).float() / 255.
         with torch.no_grad():
             action, _, _ = self.policy.sample(state)
         return action.item()
 
     def exploit(self, state):
         # act without randomness
-        state = torch.FloatTensor(state).unsqueeze(0).to(self.device)
+        state = torch.ByteTensor(
+            state).unsqueeze(0).to(self.device).float() / 255.
         with torch.no_grad():
             action = self.policy.act(state)
         return action.item()

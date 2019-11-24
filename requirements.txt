@@ -2,4 +2,3 @@ numpy
 torch
 gym[atari]
 tensorboard
-git+https://github.com/ku2482/rltorch
