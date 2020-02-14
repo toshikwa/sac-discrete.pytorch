@@ -88,9 +88,9 @@ class DummyMemory(dict):
         self.truncate()
 
     def truncate(self):
-        if len(self) > self.capacity:
-            for key in self.state_keys:
-                self[key] = self[key][-self.capacity:]
+        while len(self) > self.capacity:
+            del self['state'][0]
+            del self['next_state'][0]
 
     def sample(self, batch_size):
         indices = np.random.randint(low=0, high=len(self), size=batch_size)
