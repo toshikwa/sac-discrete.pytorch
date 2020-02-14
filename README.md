@@ -1,5 +1,5 @@
 # SAC-Discrete in PyTorch
-A PyTorch implementation of SAC-Discrete[[1]](#references) with n-step rewards and prioritized experience replay[[2]](#references). It's based on [the auther's implementation](https://github.com/p-christ/Deep-Reinforcement-Learning-Algorithms-with-PyTorch), however it doesn't support for atari environments.
+A PyTorch implementation of SAC-Discrete[[1]](#references) with n-step rewards and prioritized experience replay[[2]](#references). It's based on [the auther's implementation](https://github.com/p-christ/Deep-Reinforcement-Learning-Algorithms-with-PyTorch), which doesn't support for atari environments.
 
 I tried to make it easy for readers to understand the algorithm. Please let me know if you have any questions. If you want to train a distributed version of SAC-Discrete or a continuous version of Soft Actor-Critic, please reffer to [rltorch](https://github.com/ku2482/rltorch) repository or [Soft Actor-Critic](https://github.com/ku2482/soft-actor-critic.pytorch) repository respectively.
 
