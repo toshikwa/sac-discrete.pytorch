@@ -4,7 +4,7 @@ import torch
 from torch.optim import Adam
 from torch.utils.tensorboard import SummaryWriter
 
-from memory import DummyMultiStepMemory, DummyPrioritizedMemory
+from memory import LazyMultiStepMemory, LazyPrioritizedMemory
 from model import TwinnedQNetwork, CateoricalPolicy
 from utils import grad_false, hard_update, soft_update, to_batch,\
     update_params, RunningMeanStats
@@ -61,18 +61,18 @@ class SacDiscreteAgent:
         self.alpha = self.log_alpha.exp()
         self.alpha_optim = Adam([self.log_alpha], lr=lr, eps=1e-4)
 
-        # DummyMemory efficiently stores FrameStacked states.
+        # LazyMemory efficiently stores FrameStacked states.
         if per:
             # replay memory with prioritied experience replay
-            self.memory = DummyPrioritizedMemory(
+            self.memory = LazyPrioritizedMemory(
                 memory_size, self.env.observation_space.shape,
-                (1,), self.device, gamma, multi_step,
+                self.device, gamma, multi_step,
                 alpha=alpha, beta=beta, beta_annealing=beta_annealing)
         else:
             # replay memory without prioritied experience replay
-            self.memory = DummyMultiStepMemory(
+            self.memory = LazyMultiStepMemory(
                 memory_size, self.env.observation_space.shape,
-                (1,), self.device, gamma, multi_step)
+                self.device, gamma, multi_step)
 
         self.log_dir = log_dir
         self.model_dir = os.path.join(log_dir, 'model')

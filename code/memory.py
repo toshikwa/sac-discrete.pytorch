@@ -46,16 +46,15 @@ class MultiStepBuff:
         return len(self.memory['state'])
 
 
-class DummyMemory(dict):
+class LazyMemory(dict):
     state_keys = ['state', 'next_state']
     np_keys = ['action', 'reward', 'done']
     keys = state_keys + np_keys
 
-    def __init__(self, capacity, state_shape, action_shape, device):
-        super(DummyMemory, self).__init__()
+    def __init__(self, capacity, state_shape, device):
+        super(LazyMemory, self).__init__()
         self.capacity = int(capacity)
         self.state_shape = state_shape
-        self.action_shape = action_shape
         self.device = device
         self.reset()
 
@@ -63,8 +62,7 @@ class DummyMemory(dict):
         for key in self.state_keys:
             self[key] = []
 
-        self['action'] = np.empty(
-            (self.capacity, *self.action_shape), dtype=np.float32)
+        self['action'] = np.empty((self.capacity, 1), dtype=np.float32)
         self['reward'] = np.empty((self.capacity, 1), dtype=np.float32)
         self['done'] = np.empty((self.capacity, 1), dtype=np.float32)
 
@@ -145,12 +143,12 @@ class DummyMemory(dict):
         assert self._n == len(self)
 
 
-class DummyMultiStepMemory(DummyMemory):
+class LazyMultiStepMemory(LazyMemory):
 
-    def __init__(self, capacity, state_shape, action_shape, device,
-                 gamma=0.99, multi_step=3):
-        super(DummyMultiStepMemory, self).__init__(
-            capacity, state_shape, action_shape, device)
+    def __init__(self, capacity, state_shape, device, gamma=0.99,
+                 multi_step=3):
+        super(LazyMultiStepMemory, self).__init__(
+            capacity, state_shape, device)
 
         self.gamma = gamma
         self.multi_step = int(multi_step)
@@ -172,23 +170,23 @@ class DummyMultiStepMemory(DummyMemory):
             self._append(state, action, reward, next_state, done)
 
 
-class DummyPrioritizedMemory(DummyMultiStepMemory):
+class LazyPrioritizedMemory(LazyMultiStepMemory):
     state_keys = ['state', 'next_state']
     np_keys = ['action', 'reward', 'done', 'priority']
     keys = state_keys + np_keys
 
-    def __init__(self, capacity, state_shape, action_shape, device, gamma=0.99,
+    def __init__(self, capacity, state_shape, device, gamma=0.99,
                  multi_step=3, alpha=0.6, beta=0.4, beta_annealing=0.001,
                  epsilon=1e-4):
-        super(DummyPrioritizedMemory, self).__init__(
-            capacity, state_shape, action_shape, device, gamma, multi_step)
+        super(LazyPrioritizedMemory, self).__init__(
+            capacity, state_shape, device, gamma, multi_step)
         self.alpha = alpha
         self.beta = beta
         self.beta_annealing = beta_annealing
         self.epsilon = epsilon
 
     def reset(self):
-        super(DummyPrioritizedMemory, self).reset()
+        super(LazyPrioritizedMemory, self).reset()
         self['priority'] = np.empty((self.capacity, 1), dtype=np.float32)
 
     def append(self, state, action, reward, next_state, done, error,
