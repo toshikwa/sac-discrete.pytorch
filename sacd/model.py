@@ -4,7 +4,7 @@ from torch.nn import functional as F
 from torch.distributions import Categorical
 
 
-def weights_init_he(m):
+def initialize_weights_he(m):
     if isinstance(m, nn.Linear) or isinstance(m, nn.Conv2d):
         torch.nn.init.kaiming_uniform_(m.weight)
         if m.bias is not None:
@@ -33,7 +33,7 @@ def create_conv(num_channels, num_actions):
         nn.ReLU(inplace=True),
         # (512, ) -> (num_actions, )
         nn.Linear(512, num_actions),
-    ).apply(weights_init_he)  # The author of the paper used He's initializer.
+    ).apply(initialize_weights_he)
 
 
 class BaseNetwork(nn.Module):
@@ -63,19 +63,19 @@ class CateoricalPolicy(BaseNetwork):
         self.policy = create_conv(num_channels, num_actions)
 
     def act(self, states):
-        # act with greedy policy
+        # Act with greedy policy.
         action_logits = self.policy(states)
         greedy_actions = torch.argmax(
             action_logits, dim=1, keepdim=True)
         return greedy_actions
 
     def sample(self, states):
-        # act with exploratory policy
+        # Act with exploratory policy.
         action_probs = F.softmax(self.policy(states), dim=1)
         action_dist = Categorical(action_probs)
         actions = action_dist.sample().view(-1, 1)
 
-        # avoid numerical instability
+        # Avoid numerical instability.
         z = (action_probs == 0.0).float() * 1e-8
         log_action_probs = torch.log(action_probs + z)
 

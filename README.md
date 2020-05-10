@@ -1,10 +1,19 @@
 # SAC-Discrete in PyTorch
-A PyTorch implementation of SAC-Discrete[[1]](#references) with n-step rewards and prioritized experience replay[[2]](#references). It's based on [the auther's implementation](https://github.com/p-christ/Deep-Reinforcement-Learning-Algorithms-with-PyTorch), which doesn't support for atari environments.
+This is a PyTorch implementation of SAC-Discrete[[1]](#references). I tried to make it easy for readers to understand the algorithm. Please let me know if you have any questions.
 
-I tried to make it easy for readers to understand the algorithm. Please let me know if you have any questions. If you want to train a distributed version of SAC-Discrete or a continuous version of Soft Actor-Critic, please reffer to [rltorch](https://github.com/ku2482/rltorch) repository or [Soft Actor-Critic](https://github.com/ku2482/soft-actor-critic.pytorch) repository respectively.
+## Installation
+If you are using Anaconda, first create the virtual environment.
 
-## Requirements
-You can install liblaries using `pip install -r requirements.txt`.
+```bash
+conda create -n sacd python=3.7 -y
+conda activate sacd
+```
+
+You can install Python liblaries using pip.
+
+```bash
+pip install -r requirements.txt
+```
 
 ## Examples
 You can train SAC-Discrete agent like this example [here](https://github.com/ku2482/sac-discrete.pytorch/blob/master/code/main.py).
@@ -37,5 +46,3 @@ Note that scores reported in the paper are evaluated at 1e5 steps.
 
 ## References
 [[1]](https://arxiv.org/abs/1910.07207) Christodoulou, Petros. "Soft Actor-Critic for Discrete Action Settings." arXiv preprint arXiv:1910.07207 (2019).
-
-[[2]](https://arxiv.org/abs/1511.05952) Schaul, Tom, et al. "Prioritized experience replay." arXiv preprint arXiv:1511.05952 (2015).
