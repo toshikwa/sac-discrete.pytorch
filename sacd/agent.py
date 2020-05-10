@@ -15,7 +15,7 @@ class SacDiscreteAgent:
                  lr=0.0003, memory_size=1000000, gamma=0.99, multi_step=1,
                  target_entropy_ratio=0.98, start_steps=20000,
                  update_interval=4, target_update_interval=8000,
-                 grad_cliping=5.0, use_per=False,
+                 grad_cliping=5.0, use_per=False, dueling_net=False,
                  num_eval_steps=125000, max_episode_steps=27000,
                  log_interval=10, eval_interval=1000, cuda=True, seed=0):
         self.env = env
@@ -35,11 +35,11 @@ class SacDiscreteAgent:
             self.env.observation_space.shape[0], self.env.action_space.n
             ).to(self.device)
         self.online_critic = TwinnedQNetwork(
-            self.env.observation_space.shape[0], self.env.action_space.n
-            ).to(device=self.device)
+            self.env.observation_space.shape[0], self.env.action_space.n,
+            dueling_net=dueling_net).to(device=self.device)
         self.target_critic = TwinnedQNetwork(
-            self.env.observation_space.shape[0], self.env.action_space.n
-            ).to(device=self.device).eval()
+            self.env.observation_space.shape[0], self.env.action_space.n,
+            dueling_net=dueling_net).to(device=self.device).eval()
 
         # Copy parameters of the learning network to the target network.
         self.target_critic.load_state_dict(self.online_critic.state_dict())
@@ -48,8 +48,8 @@ class SacDiscreteAgent:
         disable_gradients(self.target_critic)
 
         self.policy_optim = Adam(self.policy.parameters(), lr=lr)
-        self.q1_optim = Adam(self.target_critic.Q1.parameters(), lr=lr)
-        self.q2_optim = Adam(self.target_critic.Q2.parameters(), lr=lr)
+        self.q1_optim = Adam(self.online_critic.Q1.parameters(), lr=lr)
+        self.q2_optim = Adam(self.online_critic.Q2.parameters(), lr=lr)
 
         # Target entropy is -log(1/|A|) * ratio (= maximum entropy * ratio).
         self.target_entropy = \

@@ -19,23 +19,7 @@ pip install -r requirements.txt
 You can train SAC-Discrete agent like this example [here](https://github.com/ku2482/sac-discrete.pytorch/blob/master/code/main.py).
 
 ```
-python code/main.py \
-[--env_id str(default MsPacmanNoFrameskip-v4)] \
-[--cuda (optional)] \
-[--seed int(default 0)]
-```
-
-If you want to use n-step rewards and prioritized experience replay, set `multi_step=3` and `per=True` in configs. Also, I modified `target_entropy_ratio` from 0.98 to 0.95, because 0.98 * maximum entropy seems too large for target entropy.
-
-You can test your trained agent.
-
-```
-python code/play.py \
---log_name str(sac-discrete-*) \
---env_id str(default MsPacmanNoFrameskip-v4) \
---render \
---cuda (optional) \
---seed int(default 0)
+python train.py --config config/sacd.yaml --env_id MsPacmanNoFrameskip-v4 --cuda --seed 0
 ```
 
 ## Results

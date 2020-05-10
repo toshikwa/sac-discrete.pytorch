@@ -16,24 +16,23 @@ class Flatten(nn.Module):
         return x.view(x.size(0), -1)
 
 
-def create_conv(num_channels, num_actions):
-    return nn.Sequential(
-        # (num_channels, 84, 84) -> (32, 20, 20)
-        nn.Conv2d(num_channels, 32, kernel_size=8, stride=4, padding=0),
-        nn.ReLU(inplace=True),
-        # (32, 20, 20) -> (64, 9, 9)
-        nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=0),
-        nn.ReLU(inplace=True),
-        # (64, 9, 9) -> (64, 7, 7)
-        nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=0),
-        nn.ReLU(inplace=True),
-        Flatten(),
-        # (64 * 7 * 7, ) -> (512, )
-        nn.Linear(7 * 7 * 64, 512),
-        nn.ReLU(inplace=True),
-        # (512, ) -> (num_actions, )
-        nn.Linear(512, num_actions),
-    ).apply(initialize_weights_he)
+class DQNBase(nn.Module):
+
+    def __init__(self, num_channels):
+        super(DQNBase, self).__init__()
+
+        self.net = nn.Sequential(
+            nn.Conv2d(num_channels, 32, kernel_size=8, stride=4, padding=0),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=0),
+            nn.ReLU(),
+            nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=0),
+            nn.ReLU(),
+            Flatten(),
+        ).apply(initialize_weights_he)
+
+    def forward(self, states):
+        return self.net(states)
 
 
 class BaseNetwork(nn.Module):
@@ -44,11 +43,42 @@ class BaseNetwork(nn.Module):
         self.load_state_dict(torch.load(path))
 
 
+class QNetwork(BaseNetwork):
+
+    def __init__(self, num_channels, num_actions, dueling_net=False):
+        super().__init__()
+        self.dueling_net = dueling_net
+        self.conv = DQNBase(num_channels)
+        if not dueling_net:
+            self.head = nn.Sequential(
+                nn.Linear(7 * 7 * 64, 512),
+                nn.ReLU(inplace=True),
+                nn.Linear(512, num_actions))
+        else:
+            self.a_head = nn.Sequential(
+                nn.Linear(7 * 7 * 64, 512),
+                nn.ReLU(inplace=True),
+                nn.Linear(512, num_actions))
+            self.v_head = nn.Sequential(
+                nn.Linear(7 * 7 * 64, 512),
+                nn.ReLU(inplace=True),
+                nn.Linear(512, 1))
+
+    def forward(self, states):
+        if not self.dueling_net:
+            return self.head(self.conv(states))
+        else:
+            x = self.conv(states)
+            a = self.a_head(x)
+            v = self.v_head(x)
+            return v + a - a.mean(1, keepdim=True)
+
+
 class TwinnedQNetwork(BaseNetwork):
-    def __init__(self, num_channels, num_actions):
-        super(TwinnedQNetwork, self).__init__()
-        self.Q1 = create_conv(num_channels, num_actions)
-        self.Q2 = create_conv(num_channels, num_actions)
+    def __init__(self, num_channels, num_actions, dueling_net=False):
+        super().__init__()
+        self.Q1 = QNetwork(num_channels, num_actions, dueling_net)
+        self.Q2 = QNetwork(num_channels, num_actions, dueling_net)
 
     def forward(self, states):
         q1 = self.Q1(states)
@@ -59,19 +89,23 @@ class TwinnedQNetwork(BaseNetwork):
 class CateoricalPolicy(BaseNetwork):
 
     def __init__(self, num_channels, num_actions):
-        super(CateoricalPolicy, self).__init__()
-        self.policy = create_conv(num_channels, num_actions)
+        super().__init__()
+        self.conv = DQNBase(num_channels)
+        self.head = nn.Sequential(
+            nn.Linear(7 * 7 * 64, 512),
+            nn.ReLU(inplace=True),
+            nn.Linear(512, num_actions))
 
     def act(self, states):
         # Act with greedy policy.
-        action_logits = self.policy(states)
+        action_logits = self.head(self.conv(states))
         greedy_actions = torch.argmax(
             action_logits, dim=1, keepdim=True)
         return greedy_actions
 
     def sample(self, states):
         # Act with exploratory policy.
-        action_probs = F.softmax(self.policy(states), dim=1)
+        action_probs = F.softmax(self.head(self.conv(states)), dim=1)
         action_dist = Categorical(action_probs)
         actions = action_dist.sample().view(-1, 1)
 
