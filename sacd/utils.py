@@ -1,15 +1,10 @@
 from collections import deque
 import numpy as np
-import torch
 
 
-def update_params(optim, loss, network, retain_graph=False,
-                  grad_cliping=None):
+def update_params(optim, loss, retain_graph=False):
     optim.zero_grad()
     loss.backward(retain_graph=retain_graph)
-    # Clip norms of gradients to stebilize training.
-    if grad_cliping:
-        torch.nn.utils.clip_grad_norm_(network.parameters(), grad_cliping)
     optim.step()
 
 

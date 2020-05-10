@@ -1,26 +1,26 @@
+from abc import ABC, abstractmethod
 import os
 import numpy as np
 import torch
-from torch.optim import Adam
 from torch.utils.tensorboard import SummaryWriter
 
-from .memory import LazyMultiStepMemory, LazyPrioritizedMultiStepMemory
-from .model import TwinnedQNetwork, CateoricalPolicy
-from .utils import update_params, disable_gradients, RunningMeanStats
+from sacd.memory import LazyMultiStepMemory, LazyPrioritizedMultiStepMemory
+from sacd.utils import update_params, RunningMeanStats
 
 
-class SacDiscreteAgent:
+class BaseAgent(ABC):
 
     def __init__(self, env, test_env, log_dir, num_steps=100000, batch_size=64,
-                 lr=0.0003, memory_size=1000000, gamma=0.99, multi_step=1,
+                 memory_size=1000000, gamma=0.99, multi_step=1,
                  target_entropy_ratio=0.98, start_steps=20000,
                  update_interval=4, target_update_interval=8000,
-                 grad_cliping=5.0, use_per=False, dueling_net=False,
-                 num_eval_steps=125000, max_episode_steps=27000,
+                 use_per=False, num_eval_steps=125000, max_episode_steps=27000,
                  log_interval=10, eval_interval=1000, cuda=True, seed=0):
+        super().__init__()
         self.env = env
         self.test_env = test_env
 
+        # Set seed.
         torch.manual_seed(seed)
         np.random.seed(seed)
         self.env.seed(seed)
@@ -30,35 +30,6 @@ class SacDiscreteAgent:
 
         self.device = torch.device(
             "cuda" if cuda and torch.cuda.is_available() else "cpu")
-
-        self.policy = CateoricalPolicy(
-            self.env.observation_space.shape[0], self.env.action_space.n
-            ).to(self.device)
-        self.online_critic = TwinnedQNetwork(
-            self.env.observation_space.shape[0], self.env.action_space.n,
-            dueling_net=dueling_net).to(device=self.device)
-        self.target_critic = TwinnedQNetwork(
-            self.env.observation_space.shape[0], self.env.action_space.n,
-            dueling_net=dueling_net).to(device=self.device).eval()
-
-        # Copy parameters of the learning network to the target network.
-        self.target_critic.load_state_dict(self.online_critic.state_dict())
-
-        # Disable gradient calculations of the target network.
-        disable_gradients(self.target_critic)
-
-        self.policy_optim = Adam(self.policy.parameters(), lr=lr)
-        self.q1_optim = Adam(self.online_critic.Q1.parameters(), lr=lr)
-        self.q2_optim = Adam(self.online_critic.Q2.parameters(), lr=lr)
-
-        # Target entropy is -log(1/|A|) * ratio (= maximum entropy * ratio).
-        self.target_entropy = \
-            -np.log(1.0 / self.env.action_space.n) * target_entropy_ratio
-
-        # We optimize log(alpha), instead of alpha.
-        self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
-        self.alpha = self.log_alpha.exp()
-        self.alpha_optim = Adam([self.log_alpha], lr=lr)
 
         # LazyMemory efficiently stores FrameStacked states.
         if use_per:
@@ -95,7 +66,6 @@ class SacDiscreteAgent:
         self.start_steps = start_steps
         self.update_interval = update_interval
         self.target_update_interval = target_update_interval
-        self.grad_cliping = grad_cliping
         self.use_per = use_per
         self.num_eval_steps = num_eval_steps
         self.max_episode_steps = max_episode_steps
@@ -112,38 +82,37 @@ class SacDiscreteAgent:
         return self.steps % self.update_interval == 0\
             and self.steps >= self.start_steps
 
+    @abstractmethod
     def explore(self, state):
-        # Act with randomness.
-        state = torch.ByteTensor(
-            state[None, ...]).to(self.device).float() / 255.
-        with torch.no_grad():
-            action, _, _ = self.policy.sample(state)
-        return action.item()
+        pass
 
+    @abstractmethod
     def exploit(self, state):
-        # Act without randomness.
-        state = torch.ByteTensor(
-            state[None, ...]).to(self.device).float() / 255.
-        with torch.no_grad():
-            action = self.policy.act(state)
-        return action.item()
+        pass
 
+    @abstractmethod
+    def update_target(self):
+        pass
+
+    @abstractmethod
     def calc_current_q(self, states, actions, rewards, next_states, dones):
-        curr_q1, curr_q2 = self.online_critic(states)
-        curr_q1 = curr_q1.gather(1, actions.long())
-        curr_q2 = curr_q2.gather(1, actions.long())
-        return curr_q1, curr_q2
+        pass
 
+    @abstractmethod
     def calc_target_q(self, states, actions, rewards, next_states, dones):
-        with torch.no_grad():
-            _, action_probs, log_action_probs = self.policy.sample(next_states)
-            next_q1, next_q2 = self.target_critic(next_states)
-            next_q = (action_probs * (
-                torch.min(next_q1, next_q2) - self.alpha * log_action_probs
-                )).sum(dim=1, keepdim=True)
+        pass
 
-        assert rewards.shape == next_q.shape
-        return rewards + (1.0 - dones) * self.gamma_n * next_q
+    @abstractmethod
+    def calc_critic_loss(self, batch, weights):
+        pass
+
+    @abstractmethod
+    def calc_policy_loss(self, batch, weights):
+        pass
+
+    @abstractmethod
+    def calc_entropy_loss(self, entropies, weights):
+        pass
 
     def train_episode(self):
         self.episodes += 1
@@ -176,9 +145,8 @@ class SacDiscreteAgent:
             if self.is_update():
                 self.learn()
 
-            if self.steps % self.target_update_interval:
-                self.target_critic.load_state_dict(
-                    self.online_critic.state_dict())
+            if self.steps % self.target_update_interval == 0:
+                self.update_target()
 
             if self.steps % self.eval_interval == 0:
                 self.evaluate()
@@ -196,6 +164,9 @@ class SacDiscreteAgent:
               f'Return: {episode_return:<5.1f}')
 
     def learn(self):
+        assert hasattr(self, 'q1_optim') and hasattr(self, 'q2_optim') and\
+            hasattr(self, 'policy_optim') and hasattr(self, 'alpha_optim')
+
         self.learning_steps += 1
 
         if self.use_per:
@@ -205,21 +176,15 @@ class SacDiscreteAgent:
             # Set priority weights to 1 when we don't use PER.
             weights = 1.
 
-        q1_loss, q2_loss, errors, mean_q1, mean_q2 =\
+        q1_loss, q2_loss, errors, mean_q1, mean_q2 = \
             self.calc_critic_loss(batch, weights)
         policy_loss, entropies = self.calc_policy_loss(batch, weights)
         entropy_loss = self.calc_entropy_loss(entropies, weights)
 
-        update_params(
-            self.q1_optim, q1_loss, self.online_critic.Q1,
-            grad_cliping=self.grad_cliping)
-        update_params(
-            self.q2_optim, q2_loss, self.online_critic.Q2,
-            grad_cliping=self.grad_cliping)
-        update_params(
-            self.policy_optim, policy_loss, self.policy,
-            grad_cliping=self.grad_cliping)
-        update_params(self.alpha_optim, entropy_loss, None)
+        update_params(self.q1_optim, q1_loss)
+        update_params(self.q2_optim, q2_loss)
+        update_params(self.policy_optim, policy_loss)
+        update_params(self.alpha_optim, entropy_loss)
 
         self.alpha = self.log_alpha.exp()
 
@@ -249,57 +214,6 @@ class SacDiscreteAgent:
             self.writer.add_scalar(
                 'stats/entropy', entropies.detach().mean().item(),
                 self.learning_steps)
-
-    def calc_critic_loss(self, batch, weights):
-        curr_q1, curr_q2 = self.calc_current_q(*batch)
-        target_q = self.calc_target_q(*batch)
-
-        # TD errors for updating priority weights
-        errors = torch.abs(curr_q1.detach() - target_q)
-
-        # We log means of Q to monitor training.
-        mean_q1 = curr_q1.detach().mean().item()
-        mean_q2 = curr_q2.detach().mean().item()
-
-        # Critic loss is mean squared TD errors with priority weights.
-        q1_loss = torch.mean((curr_q1 - target_q).pow(2) * weights)
-        q2_loss = torch.mean((curr_q2 - target_q).pow(2) * weights)
-
-        return q1_loss, q2_loss, errors, mean_q1, mean_q2
-
-    def calc_policy_loss(self, batch, weights):
-        states, actions, rewards, next_states, dones = batch
-
-        # (Log of) probabilities to calculate expectations of Q and entropies.
-        _, action_probs, log_action_probs = self.policy.sample(states)
-
-        with torch.no_grad():
-            # Q for every actions to calculate expectations of Q.
-            q1, q2 = self.online_critic(states)
-            q = torch.min(q1, q2)
-
-        # Expectations of entropies.
-        entropies = -torch.sum(
-            action_probs * log_action_probs, dim=1, keepdim=True)
-
-        # Expectations of Q.
-        q = torch.sum(torch.min(q1, q2) * action_probs, dim=1, keepdim=True)
-
-        # Policy objective is maximization of (Q + alpha * entropy) with
-        # priority weights.
-        policy_loss = (weights * (- q - self.alpha * entropies)).mean()
-
-        return policy_loss, entropies.detach()
-
-    def calc_entropy_loss(self, entropies, weights):
-        assert not entropies.requires_grad
-
-        # Intuitively, we increse alpha when entropy is less than target
-        # entropy, vice versa.
-        entropy_loss = -torch.mean(
-            self.log_alpha * (self.target_entropy - entropies)
-            * weights)
-        return entropy_loss
 
     def evaluate(self):
         num_episodes = 0
@@ -338,12 +252,10 @@ class SacDiscreteAgent:
               f'return: {mean_return:<5.1f}')
         print('-' * 60)
 
+    @abstractmethod
     def save_models(self, save_dir):
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
-        self.policy.save(os.path.join(save_dir, 'policy.pth'))
-        self.online_critic.save(os.path.join(save_dir, 'online__critic.pth'))
-        self.target_critic.save(os.path.join(save_dir, 'target__critic.pth'))
 
     def __del__(self):
         self.env.close()

@@ -8,7 +8,6 @@ target_entropy_ratio: 0.98
 start_steps: 20000
 update_interval: 4
 target_update_interval: 8000
-grad_cliping: 5.0
 use_per: False
 dueling_net: False
 num_eval_steps: 100000

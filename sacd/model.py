@@ -16,7 +16,15 @@ class Flatten(nn.Module):
         return x.view(x.size(0), -1)
 
 
-class DQNBase(nn.Module):
+class BaseNetwork(nn.Module):
+    def save(self, path):
+        torch.save(self.state_dict(), path)
+
+    def load(self, path):
+        self.load_state_dict(torch.load(path))
+
+
+class DQNBase(BaseNetwork):
 
     def __init__(self, num_channels):
         super(DQNBase, self).__init__()
@@ -35,20 +43,15 @@ class DQNBase(nn.Module):
         return self.net(states)
 
 
-class BaseNetwork(nn.Module):
-    def save(self, path):
-        torch.save(self.state_dict(), path)
-
-    def load(self, path):
-        self.load_state_dict(torch.load(path))
-
-
 class QNetwork(BaseNetwork):
 
-    def __init__(self, num_channels, num_actions, dueling_net=False):
+    def __init__(self, num_channels, num_actions, shared=False,
+                 dueling_net=False):
         super().__init__()
-        self.dueling_net = dueling_net
-        self.conv = DQNBase(num_channels)
+
+        if not shared:
+            self.conv = DQNBase(num_channels)
+
         if not dueling_net:
             self.head = nn.Sequential(
                 nn.Linear(7 * 7 * 64, 512),
@@ -64,21 +67,27 @@ class QNetwork(BaseNetwork):
                 nn.ReLU(inplace=True),
                 nn.Linear(512, 1))
 
+        self.shared = shared
+        self.dueling_net = dueling_net
+
     def forward(self, states):
+        if not self.shared:
+            states = self.conv(states)
+
         if not self.dueling_net:
-            return self.head(self.conv(states))
+            return self.head(states)
         else:
-            x = self.conv(states)
-            a = self.a_head(x)
-            v = self.v_head(x)
+            a = self.a_head(states)
+            v = self.v_head(states)
             return v + a - a.mean(1, keepdim=True)
 
 
 class TwinnedQNetwork(BaseNetwork):
-    def __init__(self, num_channels, num_actions, dueling_net=False):
+    def __init__(self, num_channels, num_actions, shared=False,
+                 dueling_net=False):
         super().__init__()
-        self.Q1 = QNetwork(num_channels, num_actions, dueling_net)
-        self.Q2 = QNetwork(num_channels, num_actions, dueling_net)
+        self.Q1 = QNetwork(num_channels, num_actions, shared, dueling_net)
+        self.Q2 = QNetwork(num_channels, num_actions, shared, dueling_net)
 
     def forward(self, states):
         q1 = self.Q1(states)
@@ -88,24 +97,32 @@ class TwinnedQNetwork(BaseNetwork):
 
 class CateoricalPolicy(BaseNetwork):
 
-    def __init__(self, num_channels, num_actions):
+    def __init__(self, num_channels, num_actions, shared=False):
         super().__init__()
-        self.conv = DQNBase(num_channels)
+        if not shared:
+            self.conv = DQNBase(num_channels)
+
         self.head = nn.Sequential(
             nn.Linear(7 * 7 * 64, 512),
             nn.ReLU(inplace=True),
             nn.Linear(512, num_actions))
 
+        self.shared = shared
+
     def act(self, states):
-        # Act with greedy policy.
-        action_logits = self.head(self.conv(states))
+        if not self.shared:
+            states = self.conv(states)
+
+        action_logits = self.head(states)
         greedy_actions = torch.argmax(
             action_logits, dim=1, keepdim=True)
         return greedy_actions
 
     def sample(self, states):
-        # Act with exploratory policy.
-        action_probs = F.softmax(self.head(self.conv(states)), dim=1)
+        if not self.shared:
+            states = self.conv(states)
+
+        action_probs = F.softmax(self.head(states), dim=1)
         action_dist = Categorical(action_probs)
         actions = action_dist.sample().view(-1, 1)
 
