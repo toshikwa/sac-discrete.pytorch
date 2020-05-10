@@ -308,8 +308,6 @@ def make_pytorch_env(env_id, episode_life=True, clip_rewards=True,
     env = make_atari(env_id)
     env = wrap_deepmind_pytorch(
         env, episode_life, clip_rewards, frame_stack, scale)
-    env._max_episode_steps = env.spec.tags.get(
-        'wrapper_config.TimeLimit.max_episode_steps')
     return env
 
 

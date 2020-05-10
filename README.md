@@ -1,41 +1,45 @@
 # SAC-Discrete in PyTorch
-A PyTorch implementation of SAC-Discrete[[1]](#references) with n-step rewards and prioritized experience replay[[2]](#references). It's based on [the auther's implementation](https://github.com/p-christ/Deep-Reinforcement-Learning-Algorithms-with-PyTorch), which doesn't support for atari environments.
+This is a PyTorch implementation of SAC-Discrete[[1]](#references). I tried to make it easy for readers to understand the algorithm. Please let me know if you have any questions.
 
-I tried to make it easy for readers to understand the algorithm. Please let me know if you have any questions. If you want to train a distributed version of SAC-Discrete or a continuous version of Soft Actor-Critic, please reffer to [rltorch](https://github.com/ku2482/rltorch) repository or [Soft Actor-Critic](https://github.com/ku2482/soft-actor-critic.pytorch) repository respectively.
+**UPDATE**
+- 2020.5.10
+    - Refactor codes and fix a bug of SAC-Discrete algorithm.
+    - Implement Prioritized Experience Replay[[2]](#references), N-step Return and Dueling Networks[[3]](#references).
+    - Test them.
 
-## Requirements
-You can install liblaries using `pip install -r requirements.txt`.
+## Installation
+If you are using Anaconda, first create the virtual environment.
+
+```bash
+conda create -n sacd python=3.7 -y
+conda activate sacd
+```
+
+You can install Python liblaries using pip.
+
+```bash
+pip install -r requirements.txt
+```
 
 ## Examples
-You can train SAC-Discrete agent like this example [here](https://github.com/ku2482/sac-discrete.pytorch/blob/master/code/main.py).
+You can train SAC-Discrete agent like this example [here](https://github.com/ku2482/sac-discrete.pytorch/blob/master/train.py).
 
 ```
-python code/main.py \
-[--env_id str(default MsPacmanNoFrameskip-v4)] \
-[--cuda (optional)] \
-[--seed int(default 0)]
+python train.py --config config/sacd.yaml --env_id MsPacmanNoFrameskip-v4 --cuda --seed 0
 ```
 
-If you want to use n-step rewards and prioritized experience replay, set `multi_step=3` and `per=True` in configs. Also, I modified `target_entropy_ratio` from 0.98 to 0.95, because 0.98 * maximum entropy seems too large for target entropy.
-
-You can test your trained agent.
-
-```
-python code/play.py \
---log_name str(sac-discrete-*) \
---env_id str(default MsPacmanNoFrameskip-v4) \
---render \
---cuda (optional) \
---seed int(default 0)
-```
+If you want to use Prioritized Experience Replay(PER), N-step return or Dueling Networks, change `use_per`, `multi_step` or `dueling_net` respectively.
 
 ## Results
-Results of above example (with n-step rewards and prioritized experience replay) will be like below, which is comparable (if no better) with the paper.
-Note that scores reported in the paper are evaluated at 1e5 steps.
+I just evaluated vanilla SAC-Discrite, with PER, N-step Return or Dueling Networks in `MsPacmanNoFrameskip-v4`. The graph below shows the test returns along with environment steps (which equals environment frames divided by the factor of 4). Also, note that curves are smoothed by exponential moving average with `weight=0.5` for visualization.
 
-<img src="https://user-images.githubusercontent.com/37267851/69165567-23cc8680-0b35-11ea-8a3c-b251bacce975.png" title="graph" width=500><img src="https://user-images.githubusercontent.com/37267851/67809830-c9fc1200-fadc-11e9-8f48-799a19689dd6.gif" title="gif" width=300>
+<img src="https://user-images.githubusercontent.com/37267851/81498474-319edf80-9300-11ea-9353-a9055062eef5.png" title="graph" width=500><img src="https://user-images.githubusercontent.com/37267851/67809830-c9fc1200-fadc-11e9-8f48-799a19689dd6.gif" title="gif" width=300>
+
+N-step Return and PER seems helpful to better utilize RL signals (e.g. sparse rewards).
 
 ## References
 [[1]](https://arxiv.org/abs/1910.07207) Christodoulou, Petros. "Soft Actor-Critic for Discrete Action Settings." arXiv preprint arXiv:1910.07207 (2019).
 
 [[2]](https://arxiv.org/abs/1511.05952) Schaul, Tom, et al. "Prioritized experience replay." arXiv preprint arXiv:1511.05952 (2015).
+
+[[3]](https://arxiv.org/abs/1511.06581) Wang, Ziyu, et al. "Dueling network architectures for deep reinforcement learning." arXiv preprint arXiv:1511.06581 (2015).
