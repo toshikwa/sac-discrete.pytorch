@@ -4,7 +4,7 @@ This is a PyTorch implementation of SAC-Discrete[[1]](#references). I tried to m
 **UPDATE**
 - 2020.5.10
     - Refactor codes and fix a bug of SAC-Discrete algorithm.
-    - Implement Prioritized Experience Replay[[2]](#references), N-step return and Dueling Networks[[3]](#references).
+    - Implement Prioritized Experience Replay[[2]](#references), N-step Return and Dueling Networks[[3]](#references).
     - Test them.
 
 ## Installation
@@ -22,7 +22,7 @@ pip install -r requirements.txt
 ```
 
 ## Examples
-You can train SAC-Discrete agent like this example [here](https://github.com/ku2482/sac-discrete.pytorch/blob/master/code/main.py).
+You can train SAC-Discrete agent like this example [here](https://github.com/ku2482/sac-discrete.pytorch/blob/master/train.py).
 
 ```
 python train.py --config config/sacd.yaml --env_id MsPacmanNoFrameskip-v4 --cuda --seed 0
@@ -31,7 +31,7 @@ python train.py --config config/sacd.yaml --env_id MsPacmanNoFrameskip-v4 --cuda
 If you want to use Prioritized Experience Replay(PER), N-step return or Dueling Networks, change `use_per`, `multi_step` or `dueling_net` respectively.
 
 ## Results
-I just evaluated vanilla SAC-Discrite, with PER, N-step return or Dueling Networks in `MsPacmanNoFrameskip-v4`. The graph below shows the test returns along with environment steps (which equals environment frames divided by the factor of 4). Also, note that curves are smoothed by exponential moving average with `weight=0.5` for visualization.
+I just evaluated vanilla SAC-Discrite, with PER, N-step Return or Dueling Networks in `MsPacmanNoFrameskip-v4`. The graph below shows the test returns along with environment steps (which equals environment frames divided by the factor of 4). Also, note that curves are smoothed by exponential moving average with `weight=0.5` for visualization.
 
 <img src="https://user-images.githubusercontent.com/37267851/81498474-319edf80-9300-11ea-9353-a9055062eef5.png" title="graph" width=500><img src="https://user-images.githubusercontent.com/37267851/67809830-c9fc1200-fadc-11e9-8f48-799a19689dd6.gif" title="gif" width=300>
 
