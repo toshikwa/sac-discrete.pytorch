@@ -80,7 +80,7 @@ class LazyMemory(dict):
         self.truncate()
 
     def truncate(self):
-        while len(self) > self.capacity:
+        while len(self['state']) > self.capacity:
             del self['state'][0]
             del self['next_state'][0]
 
