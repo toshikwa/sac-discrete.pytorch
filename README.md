@@ -7,7 +7,7 @@ This is a PyTorch implementation of SAC-Discrete[[1]](#references). I tried to m
     - Implement Prioritized Experience Replay[[2]](#references), N-step Return and Dueling Networks[[3]](#references).
     - Test them.
 
-## Installation
+## Setup
 If you are using Anaconda, first create the virtual environment.
 
 ```bash
@@ -20,6 +20,9 @@ You can install Python liblaries using pip.
 ```bash
 pip install -r requirements.txt
 ```
+
+If you're using other than CUDA 10.2, you may need to install PyTorch for the proper version of CUDA. See [instructions](https://pytorch.org/get-started/locally/) for more details.
+
 
 ## Examples
 You can train SAC-Discrete agent like this example [here](https://github.com/ku2482/sac-discrete.pytorch/blob/master/train.py).
