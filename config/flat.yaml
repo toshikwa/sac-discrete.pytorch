@@ -1,0 +1,16 @@
+num_steps: 100000
+batch_size: 256
+lr: 0.0003
+memory_size: 300000
+gamma: 0.99
+multi_step: 3
+target_entropy_ratio: 0.7
+start_steps: 1000
+update_interval: 4
+target_update_interval: 8000
+dueling_net: True
+num_eval_steps: 10000
+max_episode_steps: 1000
+log_interval: 10
+eval_interval: 5000
+units: [256, 256]

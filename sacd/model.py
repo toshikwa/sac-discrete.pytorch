@@ -131,3 +131,84 @@ class CateoricalPolicy(BaseNetwork):
         log_action_probs = torch.log(action_probs + z)
 
         return actions, action_probs, log_action_probs
+
+
+class MLP(nn.Module):
+
+    def __init__(self, input_dim, output_dim, units=[256, 256]):
+        super().__init__()
+
+        self.nets = nn.ModuleList([
+            nn.Linear(input_dim, units[0]),
+            *[nn.Sequential(
+                nn.ReLU(inplace=True),
+                nn.Linear(units[i], units[i+1])
+            ) for i in range(len(units) - 1)],
+            nn.Sequential(
+                nn.ReLU(inplace=True),
+                nn.Linear(units[-1], output_dim)
+            )
+        ])
+
+    def forward(self, x):
+        for net in self.nets:
+            x = net(x)
+        return x
+
+
+class FlatQNetwork(nn.Module):
+
+    def __init__(self, num_states, num_actions, units=[256, 256],
+                 dueling_net=True):
+        super().__init__()
+
+        if not dueling_net:
+            self.net = MLP(num_states, num_actions, units)
+        else:
+            self.a_net = MLP(num_states, num_actions, units)
+            self.v_net = MLP(num_states, 1, units)
+
+        self.dueling_net = dueling_net
+
+    def forward(self, states):
+        if not self.dueling_net:
+            return self.net(states)
+        else:
+            a = self.a_net(states)
+            v = self.v_net(states)
+            return v + a - a.mean(1, keepdim=True)
+
+
+class FlatTwinnedQNetwork(BaseNetwork):
+    def __init__(self, num_states, num_actions, units=[256, 256],
+                 dueling_net=False):
+        super().__init__()
+        self.Q1 = FlatQNetwork(num_states, num_actions, units, dueling_net)
+        self.Q2 = FlatQNetwork(num_states, num_actions, units, dueling_net)
+
+    def forward(self, states):
+        q1 = self.Q1(states)
+        q2 = self.Q2(states)
+        return q1, q2
+
+
+class FlatCateoricalPolicy(BaseNetwork):
+
+    def __init__(self, num_states, num_actions, units=[256, 256]):
+        super().__init__()
+        self.net = MLP(num_states, num_actions, units)
+
+    def act(self, states):
+        action_logits = self.net(states)
+        greedy_actions = torch.argmax(action_logits, dim=1, keepdim=True)
+        return greedy_actions
+
+    def sample(self, states):
+        action_probs = F.softmax(self.net(states), dim=1)
+        action_dist = Categorical(action_probs)
+        actions = action_dist.sample().view(-1, 1)
+
+        z = (action_probs == 0.0).float() * 1e-8
+        log_action_probs = torch.log(action_probs + z)
+
+        return actions, action_probs, log_action_probs

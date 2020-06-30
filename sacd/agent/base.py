@@ -4,7 +4,11 @@ import numpy as np
 import torch
 from torch.utils.tensorboard import SummaryWriter
 
-from sacd.memory import LazyMultiStepMemory, LazyPrioritizedMultiStepMemory
+from sacd.memory import (
+    LazyMultiStepMemory,
+    LazyPrioritizedMultiStepMemory,
+    FlatMultiStepMemory
+)
 from sacd.utils import update_params, RunningMeanStats
 
 
@@ -34,16 +38,25 @@ class BaseAgent(ABC):
         # LazyMemory efficiently stores FrameStacked states.
         if use_per:
             beta_steps = (num_steps - start_steps) / update_interval
-            self.memory = LazyPrioritizedMultiStepMemory(
-                capacity=memory_size,
-                state_shape=self.env.observation_space.shape,
-                device=self.device, gamma=gamma, multi_step=multi_step,
-                beta_steps=beta_steps)
+            if len(self.env.observation_space.shape) == 3:
+                self.memory = LazyPrioritizedMultiStepMemory(
+                    capacity=memory_size,
+                    state_shape=self.env.observation_space.shape,
+                    device=self.device, gamma=gamma, multi_step=multi_step,
+                    beta_steps=beta_steps)
+            else:
+                raise NotImplementedError
         else:
-            self.memory = LazyMultiStepMemory(
-                capacity=memory_size,
-                state_shape=self.env.observation_space.shape,
-                device=self.device, gamma=gamma, multi_step=multi_step)
+            if len(self.env.observation_space.shape) == 3:
+                self.memory = LazyMultiStepMemory(
+                    capacity=memory_size,
+                    state_shape=self.env.observation_space.shape,
+                    device=self.device, gamma=gamma, multi_step=multi_step)
+            else:
+                self.memory = FlatMultiStepMemory(
+                    capacity=memory_size,
+                    state_shape=self.env.observation_space.shape,
+                    device=self.device, gamma=gamma, multi_step=multi_step)
 
         self.log_dir = log_dir
         self.model_dir = os.path.join(log_dir, 'model')
