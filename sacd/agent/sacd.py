@@ -4,7 +4,7 @@ import torch
 from torch.optim import Adam
 
 from .base import BaseAgent
-from sacd.model import TwinnedQNetwork, CateoricalPolicy
+from sacd.model import TwinnedQNetwork, CategoricalPolicy
 from sacd.utils import disable_gradients
 
 
@@ -24,7 +24,7 @@ class SacdAgent(BaseAgent):
             log_interval, eval_interval, cuda, seed)
 
         # Define networks.
-        self.policy = CateoricalPolicy(
+        self.policy = CategoricalPolicy(
             self.env.observation_space.shape[0], self.env.action_space.n
             ).to(self.device)
         self.online_critic = TwinnedQNetwork(

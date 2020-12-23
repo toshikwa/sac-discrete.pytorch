@@ -4,7 +4,7 @@ import torch
 from torch.optim import Adam
 
 from .base import BaseAgent
-from sacd.model import DQNBase, TwinnedQNetwork, CateoricalPolicy
+from sacd.model import DQNBase, TwinnedQNetwork, CategoricalPolicy
 from sacd.utils import disable_gradients
 
 
@@ -26,7 +26,7 @@ class SharedSacdAgent(BaseAgent):
         # Define networks.
         self.conv = DQNBase(
             self.env.observation_space.shape[0]).to(self.device)
-        self.policy = CateoricalPolicy(
+        self.policy = CategoricalPolicy(
             self.env.observation_space.shape[0], self.env.action_space.n,
             shared=True).to(self.device)
         self.online_critic = TwinnedQNetwork(
