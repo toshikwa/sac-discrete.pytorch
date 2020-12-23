@@ -124,7 +124,6 @@ class SharedSacdAgent(BaseAgent):
         with torch.no_grad():
             # Q for every actions to calculate expectations of Q.
             q1, q2 = self.online_critic(states)
-            q = torch.min(q1, q2)
 
         # Expectations of entropies.
         entropies = -torch.sum(
