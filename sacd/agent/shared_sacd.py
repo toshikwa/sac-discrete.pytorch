@@ -59,16 +59,16 @@ class SharedSacdAgent(BaseAgent):
 
     def explore(self, state):
         # Act with randomness.
-        state = torch.ByteTensor(
-            state[None, ...]).to(self.device).float() / 255.
+        state = torch.FloatTensor(
+            state[None, ...]).to(self.device) / 255.
         with torch.no_grad():
             action, _, _ = self.policy.sample(self.conv(state))
         return action.item()
 
     def exploit(self, state):
         # Act without randomness.
-        state = torch.ByteTensor(
-            state[None, ...]).to(self.device).float() / 255.
+        state = torch.FloatTensor(
+            state[None, ...]).to(self.device) / 255.
         with torch.no_grad():
             action = self.policy.act(self.conv(state))
         return action.item()
