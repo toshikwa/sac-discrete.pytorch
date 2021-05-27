@@ -10,7 +10,7 @@ update_interval: 4
 target_update_interval: 8000
 use_per: False
 dueling_net: False
-num_eval_steps: 100000
+num_eval_steps: 10000
 max_episode_steps: 27000
 log_interval: 10
-eval_interval: 5000
+eval_interval: 10000
