@@ -15,7 +15,7 @@ class BaseAgent(ABC):
                  target_entropy_ratio=0.98, start_steps=20000,
                  update_interval=4, target_update_interval=8000,
                  use_per=False, num_eval_steps=125000, max_episode_steps=27000,
-                 log_interval=10, eval_interval=1000, cuda=True, seed=0):
+                 log_interval=10, eval_interval=1000, cuda=True, seed=0, render=False):
         super().__init__()
         self.env = env
         self.test_env = test_env
@@ -71,6 +71,8 @@ class BaseAgent(ABC):
         self.max_episode_steps = max_episode_steps
         self.log_interval = log_interval
         self.eval_interval = eval_interval
+
+        self.render = render
 
     def run(self):
         while True:
@@ -130,6 +132,9 @@ class BaseAgent(ABC):
                 action = self.explore(state)
 
             next_state, reward, done, _ = self.env.step(action)
+
+            if self.render:
+                self.env.render()
 
             # Clip reward to [-1.0, 1.0].
             clipped_reward = max(min(reward, 1.0), -1.0)
@@ -228,6 +233,10 @@ class BaseAgent(ABC):
             while (not done) and episode_steps <= self.max_episode_steps:
                 action = self.exploit(state)
                 next_state, reward, done, _ = self.test_env.step(action)
+
+                if self.render:
+                    self.test_env.render()
+                    
                 num_steps += 1
                 episode_steps += 1
                 episode_return += reward
