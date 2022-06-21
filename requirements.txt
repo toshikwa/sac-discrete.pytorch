@@ -1,5 +1,5 @@
 pyyaml
-numpy==1.17.3
+numpy==1.22.0
 torch==1.5.0
 gym[atari]==0.17.2
 tensorboard==2.0.0
